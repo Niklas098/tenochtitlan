@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tenochtitlan – Fundament</title>
+    <style>
+        html, body { margin:0; height:100%; overflow:hidden; background:#0b0e29; }
+        #hud {
+            position: fixed; top: 8px; left: 8px; z-index: 10;
+            font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+            background: rgba(0,0,0,.45); color: #fff;
+            padding: 8px 10px; border-radius: 8px; max-width: 360px;
+            box-shadow: 0 4px 16px rgba(0,0,0,.25);
+        }
+        #help {
+            position: fixed; bottom: 10px; left: 10px; z-index: 10;
+            font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+            background: rgba(0,0,0,.35); color:#fff; padding:6px 8px; border-radius:8px;
+        }
+        canvas { display:block; outline:none; }
+    </style>
+</head>
+<body>
+<canvas id="app" tabindex="0" aria-label="3D View"></canvas>
+<div id="hud">Starte Szene...</div>
+<div id="help">C: Kamera · G: GUI · Klick: Maus sperren (Person) · WASD: laufen</div>
+<script type="module" src="/src/app/main.js"></script>
+</body>
+</html>
