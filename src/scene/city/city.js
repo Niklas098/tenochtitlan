@@ -2,186 +2,268 @@
 import * as THREE from 'three';
 
 /**
- * Tenochtitlan – Stadt-Grundriss (Variante B – korrigiert)
- * 1u = 1m. Rechteckige Karte mit:
- *  - Straßen (dunkle Streifen)
- *  - niedrigen Gebäude-Blöcken (0.4–2m)
- *  - Umfassungsmauer (Coatepantli)
- *  - Anchors (für spätere Blender-Modelle)
+ * Tenochtitlan – Hauptplaza Grundriss (stabil & groß)
+ * Variante B: niedrige Platzhalter-Volumina, Straßen als Planes,
+ * getrennte Ebenen gegen Z-Fighting, dezente Outlines.
+ * 1u = 1m. buildCity({ MAP, CORE }) optional.
  */
 
-export function buildCity() {
-    // ---------- Maße ----------
-    const MAP = 640;
-    const BASE_H = 0.12;
-    const STREET_W = 10;
-    const LANE_W = 6;
-    const WALL_TH = 4;
-    const WALL_H = 3;
-    const CORE = 520;
-    const CORE_Y = BASE_H;
+export function buildCity(opts = {}) {
+    // ---------------- Größen ----------------
+    const MAP    = opts.MAP  ?? 1600;   // gesamte Bodenplatte (quadratisch)
+    const CORE   = opts.CORE ?? 1320;   // innerer rechteckiger Bezirksbereich
+    const BASE_H = 15;                // physische Dicke der Platten (stabil)
 
-    // ---------- Materialien ----------
+    // Fest definierte Ebenen (gegen coplanare Artefakte)
+    const Z = {
+        base: BASE_H / 2,                 // MapBase Ober-/Unterseite sauber getrennt
+        core: BASE_H + BASE_H / 2,        // CityCore liegt deutlich darüber
+        street: BASE_H * 2 + 0.02,        // Straßen minimal darüber (Plane)
+        pad: BASE_H * 2 + 0.18,           // Gebäude-Pads/Volumina noch einmal höher
+        wall: BASE_H * 2 + 0.18,          // Wände auf gleicher Ebene wie Pads
+        outlineLift: 0.03                 // Outlines minimal anheben
+    };
+
+    // Mauer & Straßen
+    const WALL_TH = 6;
+    const WALL_H  = 3.2;
+    const GATE_W  = 40;
+    const GATE_D  = 22;
+
+    const STREET_W = 16;                // Hauptachsen
+    const LANE_W   = 10;                // Nebenachsen
+
+    // ---------------- Materialien (hell, matt, kein Metall) ----------------
     const MAT = {
-        base:   new THREE.MeshStandardMaterial({ color: 0xEEE5D5, roughness: 0.95 }),
-        core:   new THREE.MeshStandardMaterial({ color: 0xE6D7BF, roughness: 0.94 }),
-        street: new THREE.MeshStandardMaterial({ color: 0xB7A690, roughness: 0.92 }),
-        block:  new THREE.MeshStandardMaterial({ color: 0xD9CBB5, roughness: 0.92 }),
-        dark:   new THREE.MeshStandardMaterial({ color: 0xA18F79, roughness: 0.9  }),
-        wall:   new THREE.MeshStandardMaterial({ color: 0xCAB79B, roughness: 0.9  }),
-        anchor: new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.85 })
+        base:   new THREE.MeshStandardMaterial({ color: 0xEFE7D7, roughness: 0.98, metalness: 0.0 }),
+        core:   new THREE.MeshStandardMaterial({ color: 0xE6D7BF, roughness: 0.98, metalness: 0.0 }),
+        wall:   new THREE.MeshStandardMaterial({ color: 0xD6C3A5, roughness: 0.98, metalness: 0.0 }),
+        street: new THREE.MeshStandardMaterial({
+            color: 0xC7B59B, roughness: 0.99, metalness: 0.0,
+            // wichtig gegen Moiré: unter alles „schieben“
+            polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+        }),
+        block:  new THREE.MeshStandardMaterial({ color: 0xDECDB7, roughness: 0.98, metalness: 0.0 }),
+        dark:   new THREE.MeshStandardMaterial({ color: 0xB1997F, roughness: 0.99, metalness: 0.0 }),
+        anchor: new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 1.0,  metalness: 0.0 })
     };
 
     const city = new THREE.Group();
     city.name = 'CityRoot';
 
-    // ---------- Basis & Core ----------
+    // ---------------- Base & Core ----------------
     const base = new THREE.Mesh(new THREE.BoxGeometry(MAP, BASE_H, MAP), MAT.base);
-    base.position.set(0, BASE_H / 2, 0);
-    base.receiveShadow = true;
+    base.position.set(0, Z.base, 0);
+    base.receiveShadow = false;         // Basis schattet nicht → ruhiger
     base.name = 'MapBase';
     city.add(base);
-    addOutline(city, base, 0x111111, 0.35);
+    outline(city, base, 0x111111, 0.22, Z.outlineLift);
 
     const core = new THREE.Mesh(new THREE.BoxGeometry(CORE, BASE_H, CORE), MAT.core);
-    core.position.set(0, CORE_Y + BASE_H / 2, 0);
+    core.position.set(0, Z.core, 0);
     core.receiveShadow = true;
     core.name = 'CityCore';
     city.add(core);
-    addOutline(city, core, 0x000000, 0.35);
+    outline(city, core, 0x000000, 0.24, Z.outlineLift);
 
-    // ---------- Wände ----------
+    // ---------------- Perimeter-Wall + Gates ----------------
     const wall = new THREE.Group();
     wall.name = 'PerimeterWall';
-    const wallY = CORE_Y + BASE_H + WALL_H / 2;
-    const seg = (w, d, x, z, rot = 0) => {
+    const wallY = Z.wall + WALL_H / 2;
+
+    const addWallSeg = (w, d, x, z) => {
         const m = new THREE.Mesh(new THREE.BoxGeometry(w, WALL_H, d), MAT.wall);
         m.position.set(x, wallY, z);
-        m.rotation.y = rot;
         m.castShadow = m.receiveShadow = true;
         wall.add(m);
-        addOutline(wall, m, 0x000000, 0.3);
+        outline(wall, m, 0x000000, 0.22, Z.outlineLift);
     };
-    const L = CORE + WALL_TH * 2 + 10;
-    seg(L, WALL_TH, 0,  (CORE / 2) + WALL_TH, 0);
-    seg(L, WALL_TH, 0, -(CORE / 2) - WALL_TH, 0);
-    seg(WALL_TH, L,  (CORE / 2) + WALL_TH, 0, 0);
-    seg(WALL_TH, L, -(CORE / 2) - WALL_TH, 0, 0);
+
+    const L = CORE + WALL_TH * 2;
+    // Seiten (Torbereiche freilassen)
+    addWallSeg((L - GATE_W - 10), WALL_TH,  (GATE_W + 10)/2,  CORE/2 + WALL_TH/2); // N (rechts vom Nordtor)
+    addWallSeg((L - GATE_W - 10), WALL_TH, -(GATE_W + 10)/2, -CORE/2 - WALL_TH/2); // S (links vom Südtor)
+    addWallSeg(WALL_TH, (L - GATE_W - 10),  CORE/2 + WALL_TH/2, -(GATE_W + 10)/2); // E
+    addWallSeg(WALL_TH, (L - GATE_W - 10), -CORE/2 - WALL_TH/2,  (GATE_W + 10)/2); // W
+
+    const addGate = (name, x, z, rotY) => {
+        const g = new THREE.Mesh(new THREE.BoxGeometry(GATE_W, WALL_H, GATE_D), MAT.wall);
+        g.position.set(x, wallY, z);
+        g.rotation.y = rotY;
+        g.castShadow = g.receiveShadow = true;
+        g.name = name;
+        wall.add(g);
+        outline(wall, g, 0x000000, 0.22, Z.outlineLift);
+
+        // optische Durchfahrt: kleine Straßen-Plane
+        const s = plane(STREET_W * 0.7, GATE_D + 10, x, Z.street, z, rotY, MAT.street);
+        wall.add(s);
+    };
+    addGate('Gate_W', -CORE/2 - WALL_TH/2, 0, Math.PI/2);
+    addGate('Gate_E',  CORE/2 + WALL_TH/2, 0, Math.PI/2);
+    addGate('Gate_S',  0, -CORE/2 - WALL_TH/2, 0);
+
     city.add(wall);
 
-    // ---------- Straßen ----------
+    // ---------------- Streets (Planes, ohne Schatten) ----------------
     const streets = new THREE.Group();
     streets.name = 'Streets';
-    const streetY = CORE_Y + BASE_H + 0.02;
-    const mkStreet = (len, w, x, z, rot = 0, name = 'Street') => {
-        const g = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, len), MAT.street);
-        g.position.set(x, streetY, z);
-        g.rotation.y = rot;
-        g.receiveShadow = true;
-        g.name = name;
-        streets.add(g);
+
+    const addStreet = (len, w, x, z, rot = 0, name = 'Street') => {
+        const s = plane(w, len, x, Z.street, z, rot, MAT.street);
+        s.name = name;
+        streets.add(s);
     };
-    mkStreet(CORE - 40, STREET_W, 0, 0, 0, 'Street_NS');
-    mkStreet(CORE - 40, STREET_W, 0, 0, Math.PI / 2, 'Street_EW');
-    mkStreet(CORE - 80, LANE_W,  CORE * 0.22,  0, Math.PI / 2, 'Lane_E1');
-    mkStreet(CORE - 80, LANE_W, -CORE * 0.22,  0, Math.PI / 2, 'Lane_W1');
-    mkStreet(CORE - 80, LANE_W,  0,  CORE * 0.22, 0, 'Lane_N1');
-    mkStreet(CORE - 80, LANE_W,  0, -CORE * 0.22, 0, 'Lane_S1');
+
+    // Hauptkreuz (leicht NE-versetzt – wie Vorlage)
+    addStreet(CORE - 80, STREET_W,  CORE * 0.08,  0, Math.PI / 2, 'Main_EW');
+    addStreet(CORE - 80, STREET_W,  0,         -CORE * 0.06, 0,   'Main_NS');
+
+    // Nebengassen
+    addStreet(CORE - 160, LANE_W,  -CORE * 0.36, 0, Math.PI / 2, 'Lane_W');
+    addStreet(CORE - 160, LANE_W,   CORE * 0.00,  CORE * 0.22, 0, 'Lane_S_Mid');
+    addStreet(CORE - 160, LANE_W,   CORE * 0.26,  CORE * 0.22, 0, 'Lane_S_E');
+    addStreet(CORE - 160, LANE_W,   CORE * 0.36,  0, Math.PI / 2, 'Lane_E');
+
+    // Torzufahrten
+    addStreet(120, LANE_W, -CORE/2 + 60, 0, Math.PI/2, 'Gate_W_Access');
+    addStreet(120, LANE_W,  CORE/2 - 60, 0, Math.PI/2, 'Gate_E_Access');
+    addStreet(120, LANE_W,  0, -CORE/2 + 60, 0, 'Gate_S_Access');
+
     city.add(streets);
 
-    // ---------- Anchors-Gruppe (vorher anlegen!) ----------
+    // ---------------- Anchors (vor Blocks!) ----------------
     const anchors = new THREE.Group();
     anchors.name = 'Anchors';
     city.add(anchors);
+    const snap = {}; // wird in mkBlock/mkRound gefüllt
 
-    // ---------- Snap-Daten ----------
-    const snapInfo = {};
-
-    // ---------- Blöcke ----------
+    // ---------------- Blocks (niedrige Volumina – austauschbar) ----------------
     const blocks = new THREE.Group();
     blocks.name = 'Blocks';
-    const padY = streetY + 0.03;
 
     const mkBlock = (key, x, z, sx, sz, h = 1.2, mat = MAT.block) => {
         const g = new THREE.Group();
         g.name = key;
+
         const m = new THREE.Mesh(new THREE.BoxGeometry(sx, h, sz), mat);
         m.position.set(0, h / 2, 0);
         m.castShadow = m.receiveShadow = true;
         g.add(m);
-        addOutline(g, m, 0x000000, 0.33);
-        g.position.set(x, padY, z);
+        outline(g, m, 0x000000, 0.24, Z.outlineLift);
+
+        g.position.set(x, Z.pad, z);
         blocks.add(g);
 
-        const a = new THREE.Mesh(new THREE.SphereGeometry(1.3, 16, 12), MAT.anchor);
-        a.position.set(x, padY + h + 0.05, z);
+        const a = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 12), MAT.anchor);
+        a.position.set(x, Z.pad + h + 0.05, z);
         a.name = 'ANK_' + key;
         a.userData.isAnchor = true;
         anchors.add(a);
 
-        snapInfo[key] = { pos: a.position.clone(), size: new THREE.Vector3(sx, h, sz) };
+        snap[key] = { pos: a.position.clone(), size: new THREE.Vector3(sx, h, sz) };
     };
 
-    const mkRound = (key, x, z, r = 16, h = 1.6) => {
+    const mkRound = (key, x, z, r = 22, h = 1.6) => {
         const g = new THREE.Group();
         g.name = key;
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.15, r * 1.15, 0.6, 48), MAT.block);
+
+        const base = new THREE.Mesh(
+            new THREE.CylinderGeometry(r * 1.12, r * 1.12, 0.6, 48),
+            MAT.block
+        );
         base.position.y = 0.3;
         base.receiveShadow = true;
         g.add(base);
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 48), MAT.dark);
+
+        const body = new THREE.Mesh(
+            new THREE.CylinderGeometry(r, r, h, 48),
+            MAT.dark
+        );
         body.position.y = 0.3 + h / 2;
         body.castShadow = body.receiveShadow = true;
         g.add(body);
-        addOutline(g, body, 0x000000, 0.33);
-        g.position.set(x, padY, z);
+
+        outline(g, body, 0x000000, 0.24, Z.outlineLift);
+
+        g.position.set(x, Z.pad, z);
         blocks.add(g);
 
-        const a = new THREE.Mesh(new THREE.SphereGeometry(1.3, 16, 12), MAT.anchor);
-        a.position.set(x, padY + 0.3 + h + 0.05, z);
+        const a = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 12), MAT.anchor);
+        a.position.set(x, Z.pad + 0.3 + h + 0.05, z);
         a.name = 'ANK_' + key;
         a.userData.isAnchor = true;
         anchors.add(a);
 
-        snapInfo[key] = { pos: a.position.clone(), radius: r, height: h };
+        snap[key] = { pos: a.position.clone(), radius: r, height: h };
     };
 
-    // ---------- Gebäude-Layout ----------
-    mkBlock('TemploMayor',  CORE * 0.14, -CORE * 0.06, 110, 110, 2.0, MAT.dark);
-    mkBlock('Tzompantli',   CORE * 0.14 - 72, -CORE * 0.02, 52, 22, 0.8);
-    mkBlock('CentralSmall', CORE * 0.02, -CORE * 0.04, 34, 26, 1.0);
-    mkBlock('Side_S1',      CORE * 0.36,  CORE * 0.16, 60, 60, 1.6, MAT.dark);
-    mkBlock('Side_S2',      CORE * 0.20,  CORE * 0.10, 44, 44, 1.4, MAT.dark);
-    mkBlock('Side_S3',      CORE * 0.48, -CORE * 0.02, 66, 66, 1.8, MAT.dark);
-    mkBlock('Ballcourt',    CORE * 0.04,  CORE * 0.30, 82, 28, 0.9, MAT.dark);
-    mkRound('Ehecatl',     -CORE * 0.22,  CORE * 0.06, 16, 1.6);
-    mkBlock('West_A',      -CORE * 0.38, -CORE * 0.10, 86, 40, 0.9);
-    mkBlock('West_B',      -CORE * 0.39,  CORE * 0.22, 120, 46, 0.9);
-    mkBlock('South_A',     -CORE * 0.06,  CORE * 0.42, 44, 18, 0.8);
-    mkBlock('South_B',      CORE * 0.28,  CORE * 0.44, 38, 18, 0.8);
-    mkBlock('Palace_S',     0,            CORE * 0.53, 280, 70, 0.9);
-    mkBlock('Palace_W',    -CORE * 0.50,  0,           110, 240, 0.9);
+    // -------- Layout (nah am Top-Down) --------
+    // Obere Hauptplattform (Templo-Mayor-Komplex) – leicht NE-versetzt
+    mkBlock('TemploMayor',   CORE * 0.18, -CORE * 0.16, 360, 240, 1.2, MAT.dark);
+
+    // Zwei Nebenpyramiden oben mittig
+    mkBlock('Top_Side_L',    CORE * 0.02, -CORE * 0.14, 120, 120, 1.2, MAT.dark);
+    mkBlock('Top_Side_R',    CORE * 0.36, -CORE * 0.12, 120, 120, 1.2, MAT.dark);
+
+    // West- & Ost-Hofanlagen
+    mkBlock('West_Palace',  -CORE * 0.46, -CORE * 0.02, 220, 300, 1.0);
+    mkBlock('East_Palace',   CORE * 0.46, -CORE * 0.02, 220, 300, 1.0);
+
+    // Tzompantli vor der Hauptplattform
+    mkBlock('Tzompantli',    CORE * 0.02, -CORE * 0.05, 140, 28, 0.8);
+
+    // Zentralsockel + runder Ehécatl darunter
+    mkBlock('Central_Small', CORE * 0.00,  CORE * 0.02, 100, 70, 1.0);
+    mkRound('Ehecatl',       CORE * 0.08,  CORE * 0.12, 26, 1.6);
+
+    // Südost-Komplex, Ballcourt, südlicher Palaststreifen
+    mkBlock('SE_Complex',    CORE * 0.38,  CORE * 0.32, 260, 240, 1.2, MAT.dark);
+    mkBlock('Ballcourt',    -CORE * 0.24,  CORE * 0.28, 200, 50, 1.0, MAT.dark);
+    mkBlock('South_Palace',  0,            CORE * 0.48, 760, 120, 1.0);
+
     city.add(blocks);
 
-    // ---------- UserData ----------
-    city.userData = {
-        scale: { meter: 1 },
-        map: { size: MAP, core: CORE },
-        snap: snapInfo,
-        anchors: Object.fromEntries(
-            anchors.children.map(n => [n.name, n.position.clone()])
-        )
-    };
+    // ---------------- GUI-Container ----------------
+    const helpers = new THREE.Group();
+    helpers.name = 'Helpers';
+    helpers.visible = false;
+    city.userData.helpers = helpers;
+    city.userData.placeholders = blocks; // Alias für GUI
+    city.add(helpers);
+
+    // ---------------- userData ----------------
+    city.userData.scale   = { meter: 1 };
+    city.userData.map     = { size: MAP, core: CORE };
+    city.userData.snap    = snap;
+    city.userData.anchors = Object.fromEntries(
+        anchors.children.map(n => [n.name, n.position.clone()])
+    );
 
     return city;
 
-    // ---------- Helper ----------
-    function addOutline(root, mesh, color = 0x000000, opacity = 0.35) {
+    // ---------------- Utilities ----------------
+    function outline(root, mesh, color = 0x000000, opacity = 0.24, lift = 0.0) {
         const eg = new THREE.EdgesGeometry(mesh.geometry);
-        const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+        const mat = new THREE.LineBasicMaterial({
+            color, transparent: true, opacity,
+            depthWrite: false, depthTest: true
+        });
         const l = new THREE.LineSegments(eg, mat);
         l.position.copy(mesh.position);
+        l.position.y += lift; // minimal über die Fläche heben → kein Z-Fight
         l.rotation.copy(mesh.rotation);
         root.add(l);
+    }
+
+    function plane(w, d, x, y, z, rotY, material) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), material);
+        m.rotation.x = -Math.PI / 2;
+        if (rotY) m.rotation.y = rotY;
+        m.position.set(x, y, z);
+        // Straßen werfen/empfangen keine Schatten → keine dunklen Streifen
+        m.receiveShadow = false;
+        m.castShadow = false;
+        return m;
     }
 }
