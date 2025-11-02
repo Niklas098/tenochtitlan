@@ -1,16 +1,40 @@
+// src/ui/gui.js
 import GUI from 'lil-gui';
-import * as THREE from 'three';
 
-export function createGUI({ scene, lights, state }) {
-    const gui = new GUI();
-    gui.add(state, 'camera', ['drone','person']).name('Kamera');
-    gui.add(state, 'day').name('Tag/Nacht').onChange(v=>{
-        scene.background = new THREE.Color(v?0x87ceeb:0x0b0e29);
-        lights.sun.intensity = v?1.1:0.06;
-        lights.hemi.intensity = v?0.5:0.2;
-    });
-    gui.add(state, 'spotlight').name('Spot an/aus').onChange(v=>{
-        lights.spot.intensity = v?1.2:0.0;
-    });
+/**
+ * Minimal & klar:
+ * - Kamera: drone | fp (C)
+ * - Tag/Nacht
+ * - Exposure
+ */
+export function createGUI({ onToggleDayNight, onCameraChange, isDay, getCameraType, renderer }) {
+    const gui = new GUI({ title: 'Steuerung' });
+
+    const general = gui.addFolder('Allgemein');
+    const lighting = gui.addFolder('Licht');
+
+    // Kamera
+    const camOpts = { camera: getCameraType() };
+    general.add(camOpts, 'camera', ['drone', 'fp'])
+        .name('Kamera (C)')
+        .onChange(onCameraChange);
+
+    // Tag/Nacht
+    const dayOpts = { day: isDay() };
+    lighting.add(dayOpts, 'day')
+        .name('Tag / Nacht')
+        .onChange(onToggleDayNight);
+
+    // Exposure
+    const r = { exposure: renderer.toneMappingExposure };
+    general.add(r, 'exposure', 0.3, 2.0, 0.01)
+        .name('Exposure')
+        .onChange((v)=>{ renderer.toneMappingExposure = v; });
+
+    general.open();
+    lighting.open();
+
     return gui;
 }
+
+export default createGUI;

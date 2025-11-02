@@ -1,205 +1,113 @@
 // src/app/main.js
 import * as THREE from 'three';
-import Stats from 'stats.js';
 import { createRenderer } from '../util/renderer.js';
-import { createCameras } from '../util/cameras.js';
-import { addLights } from '../util/lights.js';
-import { createGUI } from '../ui/gui.js';
-import { buildCity } from '../scene/city/city.js';
+import { createCameras, switchToCamera, getActiveCameraType } from '../util/cameras.js';
+import { createLights, setDayNight, updateSun, isDaytime, attachTorchTo } from '../util/lights.js';
+import { buildCity, updateCity } from '../scene/city/city.js';
+import createGUI from '../ui/gui.js';
 
-const canvas = document.getElementById('app');
-const hud = document.getElementById('hud');
+let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
 
-// ------------------------------------------------------------------
-// Renderer & Scene
-// ------------------------------------------------------------------
-const renderer = createRenderer(canvas);
+init();
+animate();
 
-// ► filmic Tonemapping & sanfte Schatten
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+function init() {
+    // Szene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xAEB7BD);
+    scene.fog = new THREE.FogExp2(0xAEB7BD, 0.00012); // dezente Atmosphäre
 
-const scene = new THREE.Scene();
-// sehr dunkles Grau statt Schwarz für angenehmen Kontrast
-scene.background = new THREE.Color(0x0e0f12);
+    // Renderer + Stats + Overlay
+    const { renderer: r, stats: s, overlayEl: o } = createRenderer();
+    renderer = r; stats = s; overlayEl = o;
+    document.body.appendChild(renderer.domElement);
+    document.body.appendChild(stats.dom);
+    document.body.appendChild(overlayEl);
 
-// ------------------------------------------------------------------
-// Cameras & Lights
-// ------------------------------------------------------------------
-const { drone, person, orbit, plock } = createCameras(renderer);
+    // Kameras
+    cameras = createCameras(renderer);
 
-// große Sichtweiten für dein City-Areal
-[drone, person].forEach(cam => {
-    cam.near = 0.1;
-    cam.far = 20000;
-    cam.updateProjectionMatrix();
-});
-drone.position.set(1800, 1600, 1800);
+    // Lichter (Sonne/Mond/Sterne/Skydome, Fackel)
+    lights = createLights(scene, renderer);
 
-// Basislicht aus util + Zusatzlichter für weiches Gesamtlicht
-const lights = addLights(scene);
+    // Startzustand: Tag
+    setDayNight(true, scene, lights);
 
-// Falls addLights() keine Ambient/Hemi setzt, ergänzen wir hier:
-const hemi = new THREE.HemisphereLight(0xffffff, 0xdccfbd, 0.55);
-scene.add(hemi);
-const ambient = new THREE.AmbientLight(0xffffff, 0.14);
-scene.add(ambient);
+    // Welt (nur Boden – Gebäude kommen später)
+    buildCity(scene, lights);
 
-// „Sonne“ mit großem Shadow-Frustum und Bias gegen Shadow-Akne
-const sun = new THREE.DirectionalLight(0xffffff, 1.05);
-sun.position.set(1200, 2200, 1400);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 8000;
-sun.shadow.camera.left = -3000;
-sun.shadow.camera.right = 3000;
-sun.shadow.camera.top = 3000;
-sun.shadow.camera.bottom = -3000;
-// wichtig gegen schwarze Kanten/Artefakte beim Rotieren:
-sun.shadow.bias = -0.00035;
-sun.shadow.normalBias = 0.6;
-scene.add(sun);
+    // Fackel an Ego-Kamera koppeln
+    attachTorchTo(cameras.fp.camera, scene, lights);
 
-// ------------------------------------------------------------------
-// City (Boden ist in city.js prozedural integriert)
-// ------------------------------------------------------------------
-const city = buildCity({ MAP: 1600, CORE: 1320 });
-scene.add(city);
+    // GUI (minimal)
+    gui = createGUI({
+        onToggleDayNight: (v) => setDayNight(v, scene, lights),
+        onCameraChange: (type) => switchToCamera(type, cameras),
+        isDay: () => isDaytime(),
+        getCameraType: () => getActiveCameraType(),
+        renderer,
+    });
 
-// Optionale Helper-Container, damit GUI togglen kann
-if (!city.userData.helpers) {
-    const helpers = new THREE.Group();
-    helpers.name = 'Helpers';
-    helpers.visible = false;
-    scene.add(helpers);
-    city.userData.helpers = helpers;
-}
-if (!city.userData.placeholders) {
-    const placeholders = scene.getObjectByName('Blocks') ?? new THREE.Group();
-    placeholders.name = 'Blocks';
-    city.userData.placeholders = placeholders;
+    // Standard: Drohne
+    switchToCamera('drone', cameras);
+
+    // Clock
+    clock = new THREE.Clock();
+
+    // Events
+    window.addEventListener('resize', onResize);
+    onResize();
+
+    // PointerLock bei Ego
+    window.addEventListener('click', () => {
+        if (getActiveCameraType() === 'fp') cameras.fp.controls.lock();
+    });
+
+    // Tastatur: C = Kamera umschalten
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'KeyC') {
+            const next = getActiveCameraType() === 'drone' ? 'fp' : 'drone';
+            switchToCamera(next, cameras);
+            if (next === 'fp') cameras.fp.controls.lock();
+        }
+    });
 }
 
-// ------------------------------------------------------------------
-// GUI
-// ------------------------------------------------------------------
-const state = {
-    camera: 'drone',
-    day: true,
-    spotlight: true,
-    showHelpers: false,
-    showPlaceholders: true
-};
-const gui = createGUI({ scene, lights, state });
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    const t = clock.elapsedTime;
 
-// Kleiner zusätzlicher GUI-Ordner nur für Layer
-import GUI from 'lil-gui';
-const more = new GUI({ title: 'City Layers' });
-more.add(state, 'showHelpers').name('Helpers (Grid/Axes)').onChange(v => {
-    if (city.userData.helpers) city.userData.helpers.visible = v;
-});
-more.add(state, 'showPlaceholders').name('Placeholders (Blocks)').onChange(v => {
-    if (city.userData.placeholders) city.userData.placeholders.visible = v;
-});
+    // Sonne/Mond animieren
+    updateSun(t, lights);
 
-// ------------------------------------------------------------------
-// Steuerung / Bewegung
-// ------------------------------------------------------------------
-const vel = new THREE.Vector3();
-const keys = {};
-addEventListener('keydown', e => (keys[e.code] = true));
-addEventListener('keyup',   e => (keys[e.code] = false));
+    // Skydome auf Kamera „kleben“
+    if (lights.skyDome) lights.skyDome.position.copy(cameras.active.camera.position);
 
-function updatePerson(dt) {
-    const speed = 10;
-    vel.set(0, 0, 0);
-    if (keys['KeyW']) vel.z -= speed;
-    if (keys['KeyS']) vel.z += speed;
-    if (keys['KeyA']) vel.x -= speed;
-    if (keys['KeyD']) vel.x += speed;
-    plock.moveRight(vel.x * dt);
-    plock.moveForward(vel.z * dt);
+    // Welt-Updates (Hook für später)
+    updateCity(dt, t, lights, cameras.active.camera);
+
+    // Controls
+    cameras.drone.controls.update();
+    cameras.fp.update(dt);
+
+    // Fackel-Flackern
+    lights.updateTorch(dt);
+
+    // Render
+    renderer.render(scene, cameras.active.camera);
+
+    // Stats/Overlay
+    stats.update();
+    const mem = performance && performance.memory ? (performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(0) : '—';
+    overlayEl.textContent = `Camera: ${getActiveCameraType().toUpperCase()} | ${isDaytime() ? 'Day' : 'Night'} | MB: ${mem}`;
 }
 
-// Maus-Sperre bei Klick im Personenmodus
-window.addEventListener('pointerdown', () => {
-    if (state.camera === 'person' && !plock.isLocked) plock.lock();
-});
-
-// Kamera-Umschalter & GUI Toggle
-addEventListener('keydown', e => {
-    if (e.code === 'KeyG') {
-        gui._hidden ? (gui.show(), more.show()) : (gui.hide(), more.hide());
-    }
-    if (e.code === 'KeyC') {
-        state.camera = state.camera === 'drone' ? 'person' : 'drone';
-    }
-});
-
-// OrbitControls: sanft, keine Unteransicht
-orbit.enableDamping = true;
-orbit.dampingFactor = 0.06;
-orbit.minDistance = 200;
-orbit.maxDistance = 6000;
-orbit.maxPolarAngle = Math.PI * 0.49;
-orbit.minPolarAngle = Math.PI * 0.12;
-orbit.target.set(0, 0.25, 0);
-
-// ------------------------------------------------------------------
-// Resize
-// ------------------------------------------------------------------
 function onResize() {
-    drone.aspect = innerWidth / innerHeight;
-    drone.updateProjectionMatrix();
-    person.aspect = innerWidth / innerHeight;
-    person.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    for (const k of ['drone', 'fp']) {
+        const cam = cameras[k].camera;
+        cam.aspect = window.innerWidth / window.innerHeight;
+        cam.updateProjectionMatrix();
+    }
 }
-addEventListener('resize', onResize);
-
-// ------------------------------------------------------------------
-// Stats + HUD
-// ------------------------------------------------------------------
-const stats = new Stats();
-stats.showPanel(0);
-document.body.appendChild(stats.dom);
-let last = performance.now();
-let fps = 0;
-
-function activeCamera() {
-    return state.camera === 'drone' ? drone : person;
-}
-
-function updateHUD(dt) {
-    const currentFPS = 1 / dt;
-    fps = fps ? fps * 0.9 + currentFPS * 0.1 : currentFPS;
-    const used =
-        performance.memory && performance.memory.usedJSHeapSize
-            ? (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(1)
-            : 'n/a';
-    if (hud) hud.innerHTML = `FPS: ${Math.round(fps)} | MS: ${(dt * 1000).toFixed(1)} | MB: ${used}`;
-}
-
-// ------------------------------------------------------------------
-// Loop
-// ------------------------------------------------------------------
-function loop() {
-    stats.begin();
-    const now = performance.now();
-    const dt = (now - last) / 1000;
-    last = now;
-
-    if (state.camera === 'person') updatePerson(dt);
-    orbit.enabled = state.camera === 'drone';
-    if (orbit.enabled) orbit.update();
-
-    renderer.render(scene, activeCamera());
-    updateHUD(dt);
-    stats.end();
-    requestAnimationFrame(loop);
-}
-loop();

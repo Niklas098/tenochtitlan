@@ -1,0 +1,5 @@
+/* src/ui/gui.css (optional)
+   Falls du lil-gui anders positionieren möchtest */
+.lil-gui.root {
+    z-index: 9999 !important;
+}
