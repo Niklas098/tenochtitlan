@@ -1,200 +1,153 @@
 // src/util/lights.js
 import * as THREE from 'three';
 
-let _isDay = true;
+let state = { day:true };
+let lights = null;
+let starField = null;
 
-export function isDaytime(){ return _isDay; }
+function makeSunDisk() {
+    // weiche Scheibe (Halo), keine stacheligen Strahlen
+    const size = 256;
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    const grd = ctx.createRadialGradient(size/2,size/2,0, size/2,size/2,size/2);
+    grd.addColorStop(0.00, 'rgba(255,245,200,1.0)');
+    grd.addColorStop(0.35, 'rgba(255,228,140,0.65)');
+    grd.addColorStop(0.70, 'rgba(255,210,110,0.25)');
+    grd.addColorStop(1.00, 'rgba(255,200, 80,0.0)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,size,size);
 
-// ----------------- Skydome Shader -----------------
-const skyVertex = `
-varying vec3 vDir;
-void main(){
-  vec4 wp = modelMatrix * vec4(position,1.0);
-  vDir = normalize(wp.xyz - cameraPosition);
-  gl_Position = projectionMatrix * viewMatrix * wp;
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(260, 260, 1);
+    return sprite;
 }
-`;
-const skyFragment = `
-precision highp float;
-varying vec3 vDir;
-uniform float uDay;      // 1 = Tag, 0 = Nacht
-uniform vec3  uSunDir;
 
-void main(){
-  float h = clamp(vDir.y*0.5 + 0.5, 0.0, 1.0);
-  vec3 dayZenith   = vec3(0.58, 0.68, 0.75);
-  vec3 dayHorizon  = vec3(0.85, 0.90, 0.95);
-  vec3 nightZenith = vec3(0.03, 0.05, 0.10);
-  vec3 nightHorizon= vec3(0.08, 0.10, 0.16);
-
-  vec3 daySky   = mix(dayHorizon, dayZenith, pow(h, 0.6));
-  vec3 nightSky = mix(nightHorizon, nightZenith, pow(h, 0.7));
-
-  float sunGlow = max(dot(normalize(-uSunDir), normalize(vDir)), 0.0);
-  sunGlow = pow(sunGlow, 120.0) * 0.35;
-
-  vec3 sky = mix(nightSky, daySky, uDay) + vec3(sunGlow) * uDay;
-  gl_FragColor = vec4(sky, 1.0);
-}
-`;
-
-export function createLights(scene, renderer) {
-    // Hemisphäre (Himmel/Boden)
-    const hemi = new THREE.HemisphereLight(0xb1e1ff, 0x887766, 0.35);
-    scene.add(hemi);
-
-    // Sonne (Directional)
-    const sun = new THREE.DirectionalLight(0xfff2cc, 2.2);
-    sun.position.set(-1, 0.45, -0.25).normalize();
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(4096, 4096);
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 12000;
-    sun.shadow.camera.left = -4000;
-    sun.shadow.camera.right = 4000;
-    sun.shadow.camera.top = 4000;
-    sun.shadow.camera.bottom = -4000;
-    scene.add(sun);
-    scene.add(sun.target);
-
-    // sichtbare Sonne
-    const sunMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(50, 24, 16),
-        new THREE.MeshBasicMaterial({ color: 0xffee88, toneMapped: false })
-    );
-    scene.add(sunMesh);
-
-    // Mond (nachts gegenüber der Sonne)
-    const moon = new THREE.Mesh(
-        new THREE.SphereGeometry(35, 24, 16),
-        new THREE.MeshBasicMaterial({ color: 0xdedede, toneMapped: false })
-    );
-    moon.visible = false;
-    scene.add(moon);
-
-    // Sterne: moderat
-    const starCount = 350;
-    const starGeom = new THREE.BufferGeometry();
-    const starPos = new Float32Array(starCount * 3);
-    const radius = 10000;
-    for (let i = 0; i < starCount; i++) {
+function makeStars() {
+    const g = new THREE.BufferGeometry();
+    const n = 800;
+    const positions = new Float32Array(n * 3);
+    for (let i=0;i<n;i++) {
         const u = Math.random();
         const v = Math.random();
         const theta = 2 * Math.PI * u;
-        const phi = Math.acos(2 * v - 1);
-        const x = Math.sin(phi) * Math.cos(theta);
-        const y = Math.cos(phi);
-        const z = Math.sin(phi) * Math.sin(theta);
-        starPos[i*3+0] = x * radius;
-        starPos[i*3+1] = y * radius;
-        starPos[i*3+2] = z * radius;
+        const phi = Math.acos(2*v - 1);
+        const r = 3000;
+        const x = r * Math.sin(phi) * Math.cos(theta);
+        const y = r * Math.cos(phi);
+        const z = r * Math.sin(phi) * Math.sin(theta);
+        positions[i*3+0]=x; positions[i*3+1]=y; positions[i*3+2]=z;
     }
-    starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    const starMat = new THREE.PointsMaterial({ size: 6, sizeAttenuation: true, color: 0xffffff, depthWrite: false });
-    const stars = new THREE.Points(starGeom, starMat);
-    stars.visible = false;
-    scene.add(stars);
+    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const m = new THREE.PointsMaterial({ size: 2.0, sizeAttenuation: true, color: 0xffffff, transparent: true, opacity: 0.85, depthWrite:false });
+    const points = new THREE.Points(g,m);
+    points.frustumCulled = false;
+    return points;
+}
 
-    // Skydome (BackSide) – wird in main() auf die Kamera positioniert
-    const skyGeo = new THREE.SphereGeometry(20000, 64, 32);
-    const skyMat = new THREE.ShaderMaterial({
-        vertexShader: skyVertex,
-        fragmentShader: skyFragment,
-        side: THREE.BackSide,
-        depthWrite: false,
-        uniforms: {
-            uDay: { value: 1.0 },
-            uSunDir: { value: sun.position.clone().normalize() }
-        }
-    });
-    const skyDome = new THREE.Mesh(skyGeo, skyMat);
-    scene.add(skyDome);
+export function createLights(scene) {
+    const group = new THREE.Group();
 
-    // Fackel (an Ego-Kamera koppelbar)
+    const hemi = new THREE.HemisphereLight(0xeadfcd, 0x1d2830, 0.4);
+    group.add(hemi);
+
+    // Sonne etwas höher über dem Horizont, weit hinten
+    const sun = new THREE.DirectionalLight(0xfff2cc, 2.2);
+    sun.position.set(-2200, 220, -500);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(4096, 4096);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 8000;
+    sun.shadow.camera.left = -3000;
+    sun.shadow.camera.right = 3000;
+    sun.shadow.camera.top = 2200;
+    sun.shadow.camera.bottom = -2200;
+
+    const sunDisk = makeSunDisk();
+    sunDisk.position.copy(sun.position);
+
+    group.add(sun, sunDisk);
+
+    // Mond
+    const moon = new THREE.SpotLight(0xbfd8ff, 0.0, 0, Math.PI/5, 0.35, 1.4);
+    moon.position.set(2000, 300, 400);
+    moon.target.position.set(0, 0, 0);
+    group.add(moon, moon.target);
+
+    // Fackel (Point + Spot)
     const torchGroup = new THREE.Group();
-    const handle = new THREE.CylinderGeometry(0.03, 0.05, 0.6, 12);
-    const handleMesh = new THREE.Mesh(
-        handle,
-        new THREE.MeshStandardMaterial({ color: 0x553b2a, roughness: 0.9, metalness: 0.0 })
+    const torchPoint = new THREE.PointLight(0xffbb66, 0.0, 55, 1.6);
+    torchPoint.castShadow = true;
+    torchPoint.position.set(0.25, -0.18, -0.45);
+    const torchSpot = new THREE.SpotLight(0xffaa66, 0.0, 70, Math.PI/5, 0.45, 1.0);
+    torchSpot.position.set(0.15, -0.10, -0.35);
+    torchSpot.target.position.set(0, -0.10, -1.2);
+    const flame = new THREE.Mesh(
+        new THREE.ConeGeometry(0.06, 0.14, 14),
+        new THREE.MeshBasicMaterial({ color: 0xff7b2d, toneMapped: false })
     );
-    handleMesh.castShadow = true;
-    handleMesh.position.set(0, -0.3, 0);
-    torchGroup.add(handleMesh);
+    flame.position.set(0.2, -0.05, -0.35);
+    flame.rotation.x = Math.PI;
+    torchGroup.add(torchPoint, torchSpot, torchSpot.target, flame);
 
-    const flameGeo = new THREE.SphereGeometry(0.07, 12, 12);
-    const flameMat = new THREE.MeshBasicMaterial({ color: 0xffaa44 });
-    const flameMesh = new THREE.Mesh(flameGeo, flameMat);
-    flameMesh.position.set(0, 0.05, 0);
-    torchGroup.add(flameMesh);
+    group.add(torchGroup);
+    scene.add(group);
 
-    const torchLight = new THREE.PointLight(0xffaa55, 2.6, 28, 2.0);
-    torchLight.castShadow = true;
-    torchLight.shadow.mapSize.set(1024,1024);
-    torchLight.position.set(0, 0.05, 0);
-    torchGroup.add(torchLight);
-    torchGroup.visible = false;
-    scene.add(torchGroup);
+    // Sterne
+    starField = makeStars();
+    starField.visible = false;
+    scene.add(starField);
 
-    const lights = {
-        hemi, sun, sunMesh,
-        moon, stars, skyDome,
-        torchGroup, torchLight,
-        updateTorch: ()=>{
-            if (!_isDay && torchGroup.visible){
-                torchLight.intensity = 2.1 + Math.sin(performance.now()*0.01)*0.25 + Math.random()*0.15;
-            }
-        },
-        get isDay(){ return _isDay; }
-    };
-
-    setDayNight(true, scene, lights);
+    lights = { group, hemi, sun, sunDisk, moon, torchGroup, torchPoint, torchSpot, flame, starField };
+    setDayNight(true);
     return lights;
 }
 
-export function setDayNight(isDay, scene, lights) {
-    _isDay = !!isDay;
-
-    // Helligkeiten
-    lights.hemi.intensity = _isDay ? 0.35 : 0.08;
-    lights.sun.intensity  = _isDay ? 2.2  : 0.05;
-
-    // Sichtbarkeit
-    lights.stars.visible  = !_isDay;
-    lights.moon.visible   = !_isDay;
-    lights.torchGroup.visible = !_isDay;  // Fackel nur nachts
-
-    // Skydome-Uniform
-    lights.skyDome.material.uniforms.uDay.value = _isDay ? 1.0 : 0.0;
+export function setDayNight(day) {
+    const d = !!day;
+    state.day = d;
+    const { hemi, sun, sunDisk, moon, torchPoint, torchSpot, flame } = lights;
+    if (d) {
+        hemi.intensity = 0.40;
+        sun.intensity = 2.2;
+        sunDisk.visible = true;
+        moon.intensity = 0.0;
+        torchPoint.intensity = 0.0;
+        torchSpot.intensity  = 0.0;
+        flame.visible = false;
+    } else {
+        hemi.intensity = 0.06;
+        sun.intensity = 0.0;
+        sunDisk.visible = false;
+        moon.intensity = 0.6;
+        torchPoint.intensity = 2.2;
+        torchSpot.intensity  = 1.2;
+        flame.visible = true;
+    }
 }
 
-export function updateSun(time, lights){
-    // langsamer Bogen knapp über Horizont
-    const speed = 0.02;
-    const a = time * speed;
-    const dir = new THREE.Vector3(
-        -Math.cos(a),
-        0.3 + 0.2 * Math.abs(Math.sin(a)), // 0.3..0.5
-        -0.25
-    ).normalize();
-
-    lights.sun.position.copy(dir);
-    lights.sun.target.position.set(0,0,0);
-
-    // sichtbare Sonne weit in diese Richtung
-    const far = 15000;
-    lights.sunMesh.position.copy(dir.clone().multiplyScalar(far));
-
-    // Mond gegenüber der Sonne
-    const moonDir = dir.clone().multiplyScalar(-1);
-    lights.moon.position.copy(moonDir.multiplyScalar(far * 0.95));
-
-    // Skydome bekommt aktuelle Sonnenrichtung
-    lights.skyDome.material.uniforms.uSunDir.value.copy(dir);
+export function showStars(on) {
+    if (lights?.starField) lights.starField.visible = !!on;
 }
 
-export function attachTorchTo(fpCamera, _scene, lights){
-    // Torch rechts unten im Sichtfeld
-    lights.torchGroup.position.set(0.25, -0.25, -0.6);
+export function isDaytime() { return state.day; }
+
+export function updateSun() {
+    if (!lights) return;
+    if (!state.day) {
+        const t = performance.now();
+        const f = Math.sin(t*0.020)*0.25 + Math.sin(t*0.017)*0.2 + Math.random()*0.12;
+        lights.torchPoint.intensity = 1.8 + f;
+        lights.torchSpot.intensity  = 1.0 + f*0.4;
+    }
+}
+
+export function attachTorchTo(fpCamera) {
+    if (!lights) return;
     fpCamera.add(lights.torchGroup);
-    fpCamera.add(lights.torchLight);
+    fpCamera.add(lights.torchPoint);
+    fpCamera.add(lights.torchSpot);
 }

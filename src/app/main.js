@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { createRenderer } from '../util/renderer.js';
 import { createCameras, switchToCamera, getActiveCameraType } from '../util/cameras.js';
-import { createLights, setDayNight, updateSun, isDaytime, attachTorchTo } from '../util/lights.js';
+import { createLights, setDayNight, updateSun, isDaytime, attachTorchTo, showStars } from '../util/lights.js';
 import { buildCity, updateCity } from '../scene/city/city.js';
 import createGUI from '../ui/gui.js';
 
@@ -12,63 +12,57 @@ init();
 animate();
 
 function init() {
-    // Szene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xAEB7BD);
-    scene.fog = new THREE.FogExp2(0xAEB7BD, 0.00012); // dezente Atmosphäre
+    scene.background = new THREE.Color(0xC9D5E6);
 
-    // Renderer + Stats + Overlay
-    const { renderer: r, stats: s, overlayEl: o } = createRenderer();
-    renderer = r; stats = s; overlayEl = o;
-    document.body.appendChild(renderer.domElement);
-    document.body.appendChild(stats.dom);
-    document.body.appendChild(overlayEl);
+    const canvas = document.getElementById('app');
+    if (!canvas) {
+        console.error("FEHLER: <canvas id='app'> fehlt in index.html");
+        return;
+    }
 
-    // Kameras
-    cameras = createCameras(renderer);
+    ({ renderer, stats, overlayEl } = createRenderer(canvas));
 
-    // Lichter (Sonne/Mond/Sterne/Skydome, Fackel)
-    lights = createLights(scene, renderer);
-
-    // Startzustand: Tag
-    setDayNight(true, scene, lights);
-
-    // Welt (nur Boden – Gebäude kommen später)
-    buildCity(scene, lights);
-
-    // Fackel an Ego-Kamera koppeln
-    attachTorchTo(cameras.fp.camera, scene, lights);
-
-    // GUI (minimal)
-    gui = createGUI({
-        onToggleDayNight: (v) => setDayNight(v, scene, lights),
-        onCameraChange: (type) => switchToCamera(type, cameras),
-        isDay: () => isDaytime(),
-        getCameraType: () => getActiveCameraType(),
-        renderer,
+    // Drei Modi: orbit (klassisch), drone (Free-Fly), fp (Ego)
+    cameras = createCameras(renderer, canvas, {
+        drone: { flySpeed: 36, height: 120, minHeight: 25, maxHeight: 350, turbo: 2.0 }
     });
+    switchToCamera('drone');
 
-    // Standard: Drohne
-    switchToCamera('drone', cameras);
+    lights = createLights(scene);
 
-    // Clock
+    // Kleinere Map, damit FP größer wirkt
+    buildCity(scene, { groundSize: 2400 });
+
+    attachTorchTo(cameras.fp.camera);
+
+    gui = createGUI(renderer, cameras, lights);
+
+    setDayNight(true);
+    showStars(false);
+
     clock = new THREE.Clock();
-
-    // Events
     window.addEventListener('resize', onResize);
     onResize();
 
-    // PointerLock bei Ego
-    window.addEventListener('click', () => {
-        if (getActiveCameraType() === 'fp') cameras.fp.controls.lock();
-    });
-
-    // Tastatur: C = Kamera umschalten
     window.addEventListener('keydown', (e) => {
         if (e.code === 'KeyC') {
-            const next = getActiveCameraType() === 'drone' ? 'fp' : 'drone';
-            switchToCamera(next, cameras);
-            if (next === 'fp') cameras.fp.controls.lock();
+            const order = ['orbit','drone','fp'];
+            const cur = order.indexOf(getActiveCameraType());
+            const next = order[(cur+1) % order.length];
+            switchToCamera(next);
+        }
+        if (e.code === 'KeyN') {
+            const day = !isDaytime();
+            setDayNight(day);
+            scene.background = day ? new THREE.Color(0xC9D5E6) : new THREE.Color(0x05070A);
+            showStars(!day);
+        }
+        if (e.code === 'KeyG') {
+            gui._hidden ? gui.show() : gui.hide();
+        }
+        if (e.code === 'KeyR') {
+            cameras.drone.resetHeight();
         }
     });
 }
@@ -78,34 +72,30 @@ function animate() {
     const dt = clock.getDelta();
     const t = clock.elapsedTime;
 
-    // Sonne/Mond animieren
-    updateSun(t, lights);
-
-    // Skydome auf Kamera „kleben“
-    if (lights.skyDome) lights.skyDome.position.copy(cameras.active.camera.position);
-
-    // Welt-Updates (Hook für später)
-    updateCity(dt, t, lights, cameras.active.camera);
-
-    // Controls
-    cameras.drone.controls.update();
+    cameras.orbit.update(dt);
+    cameras.drone.update(dt);
     cameras.fp.update(dt);
 
-    // Fackel-Flackern
-    lights.updateTorch(dt);
+    updateSun(dt);
+    updateCity(dt, t, scene, getActiveCameraType());
 
-    // Render
-    renderer.render(scene, cameras.active.camera);
+    scene.background = isDaytime() ? new THREE.Color(0xC9D5E6) : new THREE.Color(0x05070A);
 
-    // Stats/Overlay
+    const type = getActiveCameraType();
+    const cam = type === 'orbit' ? cameras.orbit.camera
+        : type === 'drone' ? cameras.drone.camera
+            : cameras.fp.camera;
+
+    renderer.render(scene, cam);
+
+    const mem = performance?.memory ? (performance.memory.usedJSHeapSize / (1024*1024)).toFixed(0) : '—';
+    overlayEl.textContent = `Cam: ${type.toUpperCase()} · ${isDaytime()?'DAY':'NIGHT'} · FPS:${stats.fps} · MS:${stats.ms} · MB:${mem}`;
     stats.update();
-    const mem = performance && performance.memory ? (performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(0) : '—';
-    overlayEl.textContent = `Camera: ${getActiveCameraType().toUpperCase()} | ${isDaytime() ? 'Day' : 'Night'} | MB: ${mem}`;
 }
 
 function onResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
-    for (const k of ['drone', 'fp']) {
+    for (const k of ['orbit','drone','fp']) {
         const cam = cameras[k].camera;
         cam.aspect = window.innerWidth / window.innerHeight;
         cam.updateProjectionMatrix();

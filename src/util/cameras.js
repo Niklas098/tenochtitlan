@@ -1,100 +1,151 @@
 // src/util/cameras.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
-let activeType = 'drone';
+let active = 'drone';
 
-export function createCameras(renderer) {
+export function createCameras(renderer, canvas, options = {}) {
     const aspect = window.innerWidth / window.innerHeight;
 
-    // Drohne / Orbit
-    const droneCamera = new THREE.PerspectiveCamera(60, aspect, 0.1, 40000);
-    droneCamera.position.set(1600, 900, 1600);
-    const droneControls = new OrbitControls(droneCamera, renderer.domElement);
-    droneControls.enableDamping = true;
-    droneControls.minDistance = 2;
-    droneControls.maxDistance = 15000;
-    droneControls.target.set(0, 0, 0);
+    // ===== ORBIT =====
+    const orbitCam = new THREE.PerspectiveCamera(60, aspect, 0.1, 9000);
+    orbitCam.position.set(180, 140, 220);
+    const orbit = new OrbitControls(orbitCam, renderer.domElement);
+    orbit.enableDamping = true;
+    orbit.dampingFactor = 0.08;
+    orbit.screenSpacePanning = true;
+    orbit.maxPolarAngle = Math.PI * 0.49;
+    orbit.target.set(0,10,0);
 
-    // Ego / FP
-    const fpCamera = new THREE.PerspectiveCamera(70, aspect, 0.1, 40000);
-    fpCamera.position.set(0, 1.75, 0);
-    const fpControls = new PointerLockControls(fpCamera, document.body);
+    function updateOrbit() { if (active === 'orbit') orbit.update(); }
 
-    const fp = makeFPController(fpCamera, fpControls);
+    // ===== DRONE (einfaches Free-Fly, keine PointerLock nötig) =====
+    const conf = Object.assign(
+        { flySpeed: 36, height: 120, minHeight: 25, maxHeight: 350, turbo: 2.0 },
+        options.drone || {}
+    );
+    const drone = new THREE.PerspectiveCamera(70, aspect, 0.1, 9000);
+    drone.position.set(0, conf.height, 6);
+    let yaw = 0, pitch = -0.1;
+    const keys = { w:false, a:false, s:false, d:false, q:false, e:false, shift:false, rmb:false, lastX:0, lastY:0 };
+
+    const onKey = (e, down) => {
+        if (e.code === 'KeyW') keys.w = down;
+        if (e.code === 'KeyA') keys.a = down;
+        if (e.code === 'KeyS') keys.s = down;
+        if (e.code === 'KeyD') keys.d = down;
+        if (e.code === 'KeyQ') keys.q = down; // runter
+        if (e.code === 'KeyE') keys.e = down; // hoch
+        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = down;
+    };
+    window.addEventListener('keydown', e=>onKey(e,true));
+    window.addEventListener('keyup',   e=>onKey(e,false));
+
+    // Rechte Maustaste gedrückt halten zum Umschauen (ohne PointerLock)
+    renderer.domElement.addEventListener('contextmenu', e=>e.preventDefault());
+    renderer.domElement.addEventListener('mousedown', (e)=>{ if (e.button===2){ keys.rmb=true; keys.lastX=e.clientX; keys.lastY=e.clientY; }});
+    window.addEventListener('mouseup', (e)=>{ if (e.button===2) keys.rmb=false; });
+    window.addEventListener('mousemove', (e)=>{
+        if (active!=='drone' || !keys.rmb) return;
+        const dx = e.clientX - keys.lastX;
+        const dy = e.clientY - keys.lastY;
+        keys.lastX = e.clientX; keys.lastY = e.clientY;
+        const s = 0.003;
+        yaw   -= dx * s;
+        pitch -= dy * s;
+        pitch = Math.max(-1.4, Math.min(1.4, pitch));
+    });
+
+    // Mausrad: Höhe justieren (sanft)
+    renderer.domElement.addEventListener('wheel', (e) => {
+        if (active !== 'drone') return;
+        e.preventDefault();
+        const delta = Math.sign(e.deltaY);
+        const step = 6 * (keys.shift ? conf.turbo : 1);
+        const newY = THREE.MathUtils.clamp(drone.position.y - delta * step, conf.minHeight, conf.maxHeight);
+        drone.position.y = newY;
+    }, { passive: false });
+
+    function updateDrone(dt) {
+        if (active !== 'drone') return;
+        drone.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+
+        const mult = keys.shift ? conf.turbo : 1.0;
+        const speed = conf.flySpeed * mult * dt;
+
+        const forward = new THREE.Vector3(0,0,-1).applyQuaternion(drone.quaternion);
+        const right   = new THREE.Vector3(1,0, 0).applyQuaternion(drone.quaternion);
+        forward.y = 0; forward.normalize(); // planar
+        right.y = 0; right.normalize();
+
+        const move = new THREE.Vector3();
+        if (keys.w) move.addScaledVector(forward,  speed);
+        if (keys.s) move.addScaledVector(forward, -speed);
+        if (keys.a) move.addScaledVector(right,   -speed);
+        if (keys.d) move.addScaledVector(right,    speed);
+        if (keys.e) move.y += speed; // hoch
+        if (keys.q) move.y -= speed; // runter
+
+        drone.position.add(move);
+        drone.position.y = THREE.MathUtils.clamp(drone.position.y, conf.minHeight, conf.maxHeight);
+    }
+
+    function resetHeight() { drone.position.y = conf.height; }
+
+    // ===== FP (Ego) =====
+    const fp = new THREE.PerspectiveCamera(70, aspect, 0.05, 5000);
+    fp.position.set(0, 1.8, 3.5); // leicht höher + näher: wirkt „größer“
+    const kfp = { w:false, a:false, s:false, d:false, locked:false };
+    let yawF=0, pitchF=0;
+
+    const onKeyFp = (e, down) => {
+        if (e.code === 'KeyW') kfp.w = down;
+        if (e.code === 'KeyA') kfp.a = down;
+        if (e.code === 'KeyS') kfp.s = down;
+        if (e.code === 'KeyD') kfp.d = down;
+    };
+    window.addEventListener('keydown', e=>onKeyFp(e,true));
+    window.addEventListener('keyup',   e=>onKeyFp(e,false));
+
+    canvas.addEventListener('click', ()=> {
+        if (active === 'fp' && !kfp.locked) canvas.requestPointerLock();
+    });
+    document.addEventListener('pointerlockchange', ()=> {
+        kfp.locked = document.pointerLockElement === canvas;
+    });
+    window.addEventListener('mousemove', e=> {
+        if (active!=='fp' || !kfp.locked) return;
+        const s = 0.0026;
+        yawF   -= e.movementX * s;
+        pitchF -= e.movementY * s;
+        pitchF = Math.max(-1.5, Math.min(1.5, pitchF));
+        fp.quaternion.setFromEuler(new THREE.Euler(pitchF, yawF, 0, 'YXZ'));
+    });
+
+    function updateFp(dt) {
+        if (active!=='fp') return;
+        const dir = new THREE.Vector3();
+        if (kfp.w) dir.z -= 1;
+        if (kfp.s) dir.z += 1;
+        if (kfp.a) dir.x -= 1;
+        if (kfp.d) dir.x += 1;
+        dir.normalize();
+
+        const speed = 16 * dt;
+        const forward = new THREE.Vector3();
+        fp.getWorldDirection(forward);
+        forward.y = 0; forward.normalize();
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+        fp.position.addScaledVector(forward, dir.z * speed);
+        fp.position.addScaledVector(right,   dir.x * speed);
+    }
 
     return {
-        drone: { camera: droneCamera, controls: droneControls },
-        fp,
-        active: { camera: droneCamera, type: 'drone' }
+        orbit: { camera: orbitCam, controls: orbit, update: updateOrbit },
+        drone: { camera: drone, update: updateDrone, resetHeight, _conf: conf },
+        fp:    { camera: fp,    update: updateFp }
     };
 }
 
-export function switchToCamera(type, cameras) {
-    if (type === 'drone') {
-        if (cameras.fp.controls.isLocked) cameras.fp.controls.unlock();
-        cameras.active.camera = cameras.drone.camera;
-        cameras.active.type = 'drone';
-        activeType = 'drone';
-    } else {
-        cameras.active.camera = cameras.fp.camera;
-        cameras.active.type = 'fp';
-        activeType = 'fp';
-    }
-}
-
-export function getActiveCameraType() {
-    return activeType;
-}
-
-function makeFPController(camera, controls) {
-    const velocity = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-    const move = { forward: false, backward: false, left: false, right: false };
-    const speed = 30; // m/s
-
-    document.addEventListener('keydown', (e)=>{
-        switch(e.code){
-            case 'KeyW': case 'ArrowUp': move.forward = true; break;
-            case 'KeyS': case 'ArrowDown': move.backward = true; break;
-            case 'KeyA': case 'ArrowLeft': move.left = true; break;
-            case 'KeyD': case 'ArrowRight': move.right = true; break;
-        }
-    });
-    document.addEventListener('keyup', (e)=>{
-        switch(e.code){
-            case 'KeyW': case 'ArrowUp': move.forward = false; break;
-            case 'KeyS': case 'ArrowDown': move.backward = false; break;
-            case 'KeyA': case 'ArrowLeft': move.left = false; break;
-            case 'KeyD': case 'ArrowRight': move.right = false; break;
-        }
-    });
-
-    function update(dt){
-        // Dämpfung
-        velocity.x -= velocity.x * 8.0 * dt;
-        velocity.z -= velocity.z * 8.0 * dt;
-
-        // Richtung aus WASD
-        direction.set(0,0,0);
-        if (move.forward) direction.z -= 1;
-        if (move.backward) direction.z += 1;
-        if (move.left) direction.x -= 1;
-        if (move.right) direction.x += 1;
-        direction.normalize();
-
-        if (controls.isLocked){
-            velocity.z -= direction.z * speed * dt;
-            velocity.x -= direction.x * speed * dt;
-
-            controls.moveRight( -velocity.x * dt );
-            controls.moveForward( -velocity.z * dt );
-
-            // Auf Bodenniveau halten – kein „Durchfallen“ / keine Unterseite
-            camera.position.y = 1.75;
-        }
-    }
-
-    return { camera, controls, update };
-}
+export function switchToCamera(type) { active = type; }
+export function getActiveCameraType() { return active; }

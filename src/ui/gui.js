@@ -1,40 +1,45 @@
-// src/ui/gui.js
 import GUI from 'lil-gui';
+import { setDayNight, isDaytime, showStars } from '../util/lights.js';
+import { switchToCamera, getActiveCameraType } from '../util/cameras.js';
 
-/**
- * Minimal & klar:
- * - Kamera: drone | fp (C)
- * - Tag/Nacht
- * - Exposure
- */
-export function createGUI({ onToggleDayNight, onCameraChange, isDay, getCameraType, renderer }) {
-    const gui = new GUI({ title: 'Steuerung' });
+export default function createGUI(renderer, cameras, lights) {
+    const gui = new GUI({ title:'Steuerung', width: 320 });
 
-    const general = gui.addFolder('Allgemein');
-    const lighting = gui.addFolder('Licht');
+    const camFolder = gui.addFolder('Kamera');
+    camFolder.add({ cam:getActiveCameraType() }, 'cam', ['orbit','drone','fp'])
+        .name('Aktiv')
+        .onChange(v=>switchToCamera(v));
 
-    // Kamera
-    const camOpts = { camera: getCameraType() };
-    general.add(camOpts, 'camera', ['drone', 'fp'])
-        .name('Kamera (C)')
-        .onChange(onCameraChange);
+    const lightFolder = gui.addFolder('Licht & Himmel');
+    const L = { day:isDaytime(), stars:false };
+    lightFolder.add(L, 'day').name('Tag').onChange(v=>{
+        setDayNight(v); showStars(!v);
+    });
+    lightFolder.add(L, 'stars').name('Sterne (Nacht)').onChange(v=>showStars(v));
 
-    // Tag/Nacht
-    const dayOpts = { day: isDay() };
-    lighting.add(dayOpts, 'day')
-        .name('Tag / Nacht')
-        .onChange(onToggleDayNight);
+    // Drone-Einstellungen live
+    const D = {
+        speed: cameras.drone._conf.flySpeed,
+        minH: cameras.drone._conf.minHeight,
+        maxH: cameras.drone._conf.maxHeight,
+        turbo: cameras.drone._conf.turbo,
+        reset: ()=>cameras.drone.resetHeight()
+    };
+    const fly = gui.addFolder('Drone');
+    fly.add(D,'speed', 8, 80, 1).name('Geschwindigkeit')
+        .onChange(v=>{ cameras.drone._conf.flySpeed = v; });
+    fly.add(D,'minH', 5, 200, 1).name('min Höhe')
+        .onChange(v=>{ cameras.drone._conf.minHeight = v; });
+    fly.add(D,'maxH', 50, 800, 1).name('max Höhe')
+        .onChange(v=>{ cameras.drone._conf.maxHeight = v; });
+    fly.add(D,'turbo', 1.2, 4.0, 0.1).name('Turbo-Faktor')
+        .onChange(v=>{ cameras.drone._conf.turbo = v; });
+    fly.add(D,'reset').name('Höhe reset');
 
-    // Exposure
-    const r = { exposure: renderer.toneMappingExposure };
-    general.add(r, 'exposure', 0.3, 2.0, 0.01)
-        .name('Exposure')
-        .onChange((v)=>{ renderer.toneMappingExposure = v; });
+    const R = { exposure: renderer.toneMappingExposure };
+    gui.add(R, 'exposure', .3, 2, .01).name('Belichtung')
+        .onChange(v=>renderer.toneMappingExposure = v);
 
-    general.open();
-    lighting.open();
-
+    camFolder.open(); lightFolder.open(); fly.open();
     return gui;
 }
-
-export default createGUI;
