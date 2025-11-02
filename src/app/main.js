@@ -23,23 +23,23 @@ function init() {
 
     ({ renderer, stats, overlayEl } = createRenderer(canvas));
 
-    // Drei Modi: orbit (klassisch), drone (Free-Fly), fp (Ego)
     cameras = createCameras(renderer, canvas, {
-        drone: { flySpeed: 36, height: 120, minHeight: 25, maxHeight: 350, turbo: 2.0 }
+        drone: { flySpeed: 32, height: 120, minHeight: 25, maxHeight: 350, turbo: 1.8 }
     });
     switchToCamera('drone');
 
     lights = createLights(scene);
 
-    // Kleinere Map, damit FP größer wirkt
+    // Kleinere Map -> FP wirkt größer
     buildCity(scene, { groundSize: 2400 });
 
+    // 🔥 Fackel sicher anhängen
     attachTorchTo(cameras.fp.camera);
 
     gui = createGUI(renderer, cameras, lights);
 
-    setDayNight(true);
-    showStars(false);
+    setDayNight(true);      // Start: Tag
+    showStars(false);       // Sterne aus
 
     clock = new THREE.Clock();
     window.addEventListener('resize', onResize);

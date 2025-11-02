@@ -9,16 +9,21 @@ export function createRenderer(canvas) {
         alpha: false,
         depth: true
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // ⚙️ Performance: harte Kappe
+    const MAX_DPR = 1.4; // kleiner als 2 -> merkbar schneller
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_DPR));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
+
+    // ⚙️ Performance: softere Shadows
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.physicallyCorrectLights = true;
 
-    // FPS/MS tracker
+    // Sehr leichtgewichtiges FPS/MS
     const stats = (function() {
         let last = performance.now();
         let frames = 0;
@@ -42,7 +47,7 @@ export function createRenderer(canvas) {
         };
     })();
 
-    // HUD
+    // HUD (FPS/MS/MB)
     let overlayEl = document.getElementById('hud');
     if (!overlayEl) {
         overlayEl = document.createElement('div');
@@ -60,6 +65,12 @@ export function createRenderer(canvas) {
         overlayEl.textContent = 'Lade...';
         document.body.appendChild(overlayEl);
     }
+
+    // kleine Helfer zum Tuning aus der GUI
+    renderer.__setPixelRatioCap = (cap) => {
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, cap));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    };
 
     return { renderer, stats, overlayEl };
 }

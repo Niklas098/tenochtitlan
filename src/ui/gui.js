@@ -11,13 +11,17 @@ export default function createGUI(renderer, cameras, lights) {
         .onChange(v=>switchToCamera(v));
 
     const lightFolder = gui.addFolder('Licht & Himmel');
-    const L = { day:isDaytime(), stars:false };
+    const L = { day:isDaytime(), stars:false, sunY: lights.sun.position.y };
     lightFolder.add(L, 'day').name('Tag').onChange(v=>{
         setDayNight(v); showStars(!v);
     });
     lightFolder.add(L, 'stars').name('Sterne (Nacht)').onChange(v=>showStars(v));
+    lightFolder.add(L, 'sunY', 120, 800, 10).name('Sonnenhöhe').onChange(v=>{
+        lights.sun.position.y = v;
+        lights.sunDisk.position.y = v;
+    });
 
-    // Drone-Einstellungen live
+    // Drone-Tuning live
     const D = {
         speed: cameras.drone._conf.flySpeed,
         minH: cameras.drone._conf.minHeight,
@@ -36,10 +40,18 @@ export default function createGUI(renderer, cameras, lights) {
         .onChange(v=>{ cameras.drone._conf.turbo = v; });
     fly.add(D,'reset').name('Höhe reset');
 
+    // ⚙️ Performance-Schalter
+    const P = { pixelCap: 1.4, shadows: true };
+    const perf = gui.addFolder('Leistung');
+    perf.add(P, 'pixelCap', 0.8, 2.0, 0.1).name('Pixel Ratio Max')
+        .onChange(v=>renderer.__setPixelRatioCap(v));
+    perf.add(P, 'shadows').name('Schatten an/aus')
+        .onChange(v => { renderer.shadowMap.enabled = v; });
+
     const R = { exposure: renderer.toneMappingExposure };
     gui.add(R, 'exposure', .3, 2, .01).name('Belichtung')
         .onChange(v=>renderer.toneMappingExposure = v);
 
-    camFolder.open(); lightFolder.open(); fly.open();
+    camFolder.open(); lightFolder.open(); fly.open(); perf.open();
     return gui;
 }

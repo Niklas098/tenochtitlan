@@ -16,19 +16,19 @@ export function createCameras(renderer, canvas, options = {}) {
     orbit.screenSpacePanning = true;
     orbit.maxPolarAngle = Math.PI * 0.49;
     orbit.target.set(0,10,0);
-
     function updateOrbit() { if (active === 'orbit') orbit.update(); }
 
-    // ===== DRONE (einfaches Free-Fly, keine PointerLock nötig) =====
+    // ===== DRONE (Free-Fly – einfacher bedienbar) =====
     const conf = Object.assign(
-        { flySpeed: 36, height: 120, minHeight: 25, maxHeight: 350, turbo: 2.0 },
+        { flySpeed: 32, height: 120, minHeight: 25, maxHeight: 350, turbo: 1.8 },
         options.drone || {}
     );
     const drone = new THREE.PerspectiveCamera(70, aspect, 0.1, 9000);
     drone.position.set(0, conf.height, 6);
-    let yaw = 0, pitch = -0.1;
+    let yaw = 0, pitch = -0.08;
     const keys = { w:false, a:false, s:false, d:false, q:false, e:false, shift:false, rmb:false, lastX:0, lastY:0 };
 
+    // vereinfachte Tasten
     const onKey = (e, down) => {
         if (e.code === 'KeyW') keys.w = down;
         if (e.code === 'KeyA') keys.a = down;
@@ -36,12 +36,12 @@ export function createCameras(renderer, canvas, options = {}) {
         if (e.code === 'KeyD') keys.d = down;
         if (e.code === 'KeyQ') keys.q = down; // runter
         if (e.code === 'KeyE') keys.e = down; // hoch
-        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = down;
+        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = down; // Turbo
     };
     window.addEventListener('keydown', e=>onKey(e,true));
     window.addEventListener('keyup',   e=>onKey(e,false));
 
-    // Rechte Maustaste gedrückt halten zum Umschauen (ohne PointerLock)
+    // Rechte Maustaste halten = Blick drehen (ohne PointerLock)
     renderer.domElement.addEventListener('contextmenu', e=>e.preventDefault());
     renderer.domElement.addEventListener('mousedown', (e)=>{ if (e.button===2){ keys.rmb=true; keys.lastX=e.clientX; keys.lastY=e.clientY; }});
     window.addEventListener('mouseup', (e)=>{ if (e.button===2) keys.rmb=false; });
@@ -53,10 +53,10 @@ export function createCameras(renderer, canvas, options = {}) {
         const s = 0.003;
         yaw   -= dx * s;
         pitch -= dy * s;
-        pitch = Math.max(-1.4, Math.min(1.4, pitch));
+        pitch = Math.max(-1.3, Math.min(1.3, pitch));
     });
 
-    // Mausrad: Höhe justieren (sanft)
+    // Mausrad: Höhe ändern
     renderer.domElement.addEventListener('wheel', (e) => {
         if (active !== 'drone') return;
         e.preventDefault();
@@ -70,12 +70,13 @@ export function createCameras(renderer, canvas, options = {}) {
         if (active !== 'drone') return;
         drone.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
 
+        // sehr einfache, „griffige“ Steuerung
         const mult = keys.shift ? conf.turbo : 1.0;
         const speed = conf.flySpeed * mult * dt;
 
         const forward = new THREE.Vector3(0,0,-1).applyQuaternion(drone.quaternion);
         const right   = new THREE.Vector3(1,0, 0).applyQuaternion(drone.quaternion);
-        forward.y = 0; forward.normalize(); // planar
+        forward.y = 0; forward.normalize();
         right.y = 0; right.normalize();
 
         const move = new THREE.Vector3();
@@ -83,8 +84,8 @@ export function createCameras(renderer, canvas, options = {}) {
         if (keys.s) move.addScaledVector(forward, -speed);
         if (keys.a) move.addScaledVector(right,   -speed);
         if (keys.d) move.addScaledVector(right,    speed);
-        if (keys.e) move.y += speed; // hoch
-        if (keys.q) move.y -= speed; // runter
+        if (keys.e) move.y += speed;
+        if (keys.q) move.y -= speed;
 
         drone.position.add(move);
         drone.position.y = THREE.MathUtils.clamp(drone.position.y, conf.minHeight, conf.maxHeight);
@@ -94,7 +95,7 @@ export function createCameras(renderer, canvas, options = {}) {
 
     // ===== FP (Ego) =====
     const fp = new THREE.PerspectiveCamera(70, aspect, 0.05, 5000);
-    fp.position.set(0, 1.8, 3.5); // leicht höher + näher: wirkt „größer“
+    fp.position.set(0, 1.85, 3.2); // minimal höher/näher -> wirkt größer
     const kfp = { w:false, a:false, s:false, d:false, locked:false };
     let yawF=0, pitchF=0;
 

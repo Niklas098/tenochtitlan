@@ -1,7 +1,7 @@
 // src/scene/city/city.js
 import * as THREE from 'three';
 
-// --- Externe Texturen optional laden (Vite: aus /public) ---
+// ⚙️ Optional: externe Texturen (aus /public/textures) auto-laden
 function tryLoadTexture(url, onOK, onFail) {
     const loader = new THREE.TextureLoader();
     loader.load(
@@ -16,7 +16,7 @@ function tryLoadTexture(url, onOK, onFail) {
     );
 }
 
-// --- Procedural sand (beiger, körniger, leichte Dünen) ---
+// Beiger, körniger Albedo (prozedural)
 function makeSandTexture(size=1024){
     const c=document.createElement('canvas'); c.width=c.height=size;
     const g=c.getContext('2d');
@@ -30,7 +30,7 @@ function makeSandTexture(size=1024){
         for(let x=0;x<size;x++){
             const u=x/size,v=y/size;
             const gf=fbm(u*26,v*26);
-            const dunes = 0.5 + 0.5*Math.sin(u*14.0 + Math.sin(v*3.0)*2.0);
+            const dunes = 0.5 + 0.5*Math.sin(u*12.0 + Math.sin(v*2.0)*1.6);
             const m = THREE.MathUtils.clamp(0.55*gf + 0.25*dunes, 0, 1);
             const col = A.clone().lerp(B, m).lerp(C, 0.1*gf);
             const i=(y*size+x)*4;
@@ -40,12 +40,12 @@ function makeSandTexture(size=1024){
     g.putImageData(img,0,0);
     const t=new THREE.CanvasTexture(c);
     t.wrapS=t.wrapT=THREE.RepeatWrapping;
-    t.repeat.set(36,36);
-    t.anisotropy = 8;
+    t.repeat.set(28,28); // etwas größer -> weniger Moiré
+    t.anisotropy = 4;    // ⚙️ günstiger
     return t;
 }
 
-// feinere Normalmap -> Lichtrichtung sichtbar
+// feinere Normalmap – günstiger eingestellt
 function makeSandNormal(size=512){
     const c=document.createElement('canvas'); c.width=c.height=size;
     const g=c.getContext('2d');
@@ -55,11 +55,11 @@ function makeSandNormal(size=512){
     for(let y=0;y<size;y++){
         for(let x=0;x<size;x++){
             const u = x/size, v = y/size;
-            const e = 1.2/size;
-            const h  = fbm(u*48, v*48);
-            const hx = fbm((u+e)*48, v*48) - h;
-            const hy = fbm(u*48, (v+e)*48) - h;
-            const nx = -hx*2.6, ny = -hy*2.6, nz = 1.0;
+            const e = 1.5/size;
+            const h  = fbm(u*40, v*40);
+            const hx = fbm((u+e)*40, v*40) - h;
+            const hy = fbm(u*40, (v+e)*40) - h;
+            const nx = -hx*2.1, ny = -hy*2.1, nz = 1.0;
             const l = Math.sqrt(nx*nx+ny*ny+nz*nz);
             const r = (nx/l)*0.5+0.5, gch=(ny/l)*0.5+0.5, b=(nz/l)*0.5+0.5;
             const i=(y*size+x)*4;
@@ -69,12 +69,12 @@ function makeSandNormal(size=512){
     g.putImageData(img,0,0);
     const t=new THREE.CanvasTexture(c);
     t.wrapS=t.wrapT=THREE.RepeatWrapping;
-    t.repeat.set(64,64);
+    t.repeat.set(48,48);
     return t;
 }
 
-// minimale Boden-Unebenheiten
-function displaceGroundGeometry(geo, amount=0.18, scale=0.0038) {
+// leichtes Vertex-Displacement (⚙️ günstiger als vorher)
+function displaceGroundGeometry(geo, amount=0.12, scale=0.0035) {
     const pos = geo.attributes.position;
     for (let i=0; i<pos.count; i++) {
         const x = pos.getX(i), z = pos.getZ(i);
@@ -87,7 +87,8 @@ function displaceGroundGeometry(geo, amount=0.18, scale=0.0038) {
 }
 
 export function buildCity(scene, { groundSize=2400 } = {}) {
-    const seg = 256;
+    // ⚙️ Performance: weniger Segmente
+    const seg = 128; // vorher 256
     const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, seg, seg);
     groundGeo.rotateX(-Math.PI/2);
     displaceGroundGeometry(groundGeo);
@@ -100,12 +101,12 @@ export function buildCity(scene, { groundSize=2400 } = {}) {
         normalMap: makeSandNormal()
     });
 
-    // Externe Texturen laden, wenn vorhanden (in /public/textures)
+    // externe Texturen (falls vorhanden) – einfach nach /public/textures legen
     tryLoadTexture('/textures/teno_sand_albedo_1024.png',
         (tx) => { groundMat.map = tx; groundMat.needsUpdate = true; },
         () => tryLoadTexture('/textures/sand_base.jpg',
             (tx) => { groundMat.map = tx; groundMat.needsUpdate = true; },
-            ()  => {/* behalte prozedural */}
+            ()  => {/* prozedural behalten */}
         )
     );
     tryLoadTexture('/textures/teno_sand_normal_1024.png',
@@ -118,6 +119,4 @@ export function buildCity(scene, { groundSize=2400 } = {}) {
     scene.add(ground);
 }
 
-export function updateCity(dt, t, scene, activeCamera) {
-    // aktuell nichts
-}
+export function updateCity(/*dt, t*/) { /* aktuell leer */ }
