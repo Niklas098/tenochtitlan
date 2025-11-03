@@ -1,5 +1,7 @@
 // src/scene/city/city.js
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
 
 // ⚙️ Optional: externe Texturen (aus /public/textures) auto-laden
 function tryLoadTexture(url, onOK, onFail) {
@@ -117,6 +119,60 @@ export function buildCity(scene, { groundSize=2400 } = {}) {
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.receiveShadow = true;
     scene.add(ground);
+}
+
+export function loadGLB(
+  scene,
+  {
+    url = '/models/pyramide.glb',
+    position = { x: 0, y: 0, z: 0 },
+    rotation = { x: 0, y: 0, z: 0 },
+    scale = 0.002,
+    castShadow = true,
+    receiveShadow = true,
+    onLoaded = null,
+  } = {}
+) {
+  const loader = new GLTFLoader();
+
+  console.log(`[GLB] Lade Modell: ${url}`);
+
+  loader.load(
+    url,
+    (gltf) => {
+      const model = gltf.scene;
+
+      // Position / Rotation / Skalierung
+      model.position.set(position.x, position.y, position.z);
+      model.rotation.set(rotation.x, rotation.y, rotation.z);
+      if (typeof scale === 'number') model.scale.setScalar(scale);
+      else model.scale.set(scale.x ?? 1, scale.y ?? 1, scale.z ?? 1);
+
+      // Schatten & Material-Fix
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = castShadow;
+          child.receiveShadow = receiveShadow;
+          if (child.material) {
+            child.material.side = THREE.FrontSide;
+            child.material.needsUpdate = true;
+          }
+        }
+      });
+
+      scene.add(model);
+      console.log('[GLB] Modell geladen ✅');
+
+      if (onLoaded) onLoaded(model, gltf);
+    },
+    (xhr) => {
+      const percent = xhr.total ? ((xhr.loaded / xhr.total) * 100).toFixed(1) : '...';
+      console.log(`[GLB] Fortschritt: ${percent}%`);
+    },
+    (error) => {
+      console.error(`[GLB] Fehler beim Laden von ${url}:`, error);
+    }
+  );
 }
 
 export function updateCity(/*dt, t*/) { /* aktuell leer */ }

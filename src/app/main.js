@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { createRenderer } from '../util/renderer.js';
 import { createCameras, switchToCamera, getActiveCameraType } from '../util/cameras.js';
 import { createLights, setDayNight, updateSun, isDaytime, attachTorchTo, showStars } from '../util/lights.js';
-import { buildCity, updateCity } from '../scene/city/city.js';
+import { buildCity, updateCity, loadGLB } from '../scene/city/city.js';
 import createGUI from '../ui/gui.js';
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
@@ -101,3 +101,12 @@ function onResize() {
         cam.updateProjectionMatrix();
     }
 }
+
+// Beispiel: Pyramide auf die Plaza stellen
+loadGLB(scene, {
+  url: '/models/pyramide.glb',
+  position: { x: 0, y: 0, z: 0 },  // Stelle auf der Plaza
+  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+  scale: 0.04,
+});
+
