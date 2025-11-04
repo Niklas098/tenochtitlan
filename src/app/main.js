@@ -25,7 +25,6 @@ animate();
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xC9D5E6);
 
   const canvas = document.getElementById('app');
   if (!canvas) {
@@ -117,8 +116,6 @@ function animate() {
 
   updateCity(dt, t, scene, getActiveCameraType());
 
-  scene.background = isDaytime() ? new THREE.Color(0xC9D5E6) : new THREE.Color(0x05070A);
-
   const type = getActiveCameraType();
   const cam = type === 'orbit' ? cameras.orbit.camera
         : type === 'drone' ? cameras.drone.camera
@@ -151,3 +148,5 @@ loadGLB(scene, {
   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
   scale: 0.04,
 });
+
+

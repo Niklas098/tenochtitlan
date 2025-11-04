@@ -1,5 +1,6 @@
 // src/util/lights.js
 import * as THREE from 'three';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 let lights = null;
 let state = { hours: 13.0, auto: false, speed: 0.25 }; // speed: Stunden pro Sekunde
@@ -20,24 +21,7 @@ function kelvinToRGB(k){
   return new THREE.Color(clamp01(r/255), clamp01(g/255), clamp01(b/255));
 }
 
-function makeSunDisk() {
-  const size = 256;
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const ctx = c.getContext('2d');
-  const grd = ctx.createRadialGradient(size/2,size/2,0, size/2,size/2,size/2);
-  grd.addColorStop(0.00, 'rgba(255,245,200,1.0)');
-  grd.addColorStop(0.35, 'rgba(255,228,140,0.65)');
-  grd.addColorStop(0.70, 'rgba(255,210,110,0.25)');
-  grd.addColorStop(1.00, 'rgba(255,200, 80,0.0)');
-  ctx.fillStyle = grd; ctx.fillRect(0,0,size,size);
-  const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped:false });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(260,260,1);
-  sprite.renderOrder = 1;
-  return sprite;
-}
+
 
 function makeMoonDisk() {
   const size = 192;
@@ -128,7 +112,6 @@ export function createLights(scene){
   const sunTarget = new THREE.Object3D();
   group.add(sunTarget); sun.target = sunTarget;
 
-  const sunDisk = makeSunDisk(); group.add(sunDisk);
   group.add(sun);
 
   // Mond (Spot) + Disk
@@ -142,8 +125,25 @@ export function createLights(scene){
   const starField = makeStars(); starField.visible = false;
   scene.add(starField);
 
+  // Himmel (Skybox)
+  const sky = new Sky();
+  sky.scale.setScalar(10000);     // groß genug, um alles zu umhüllen
+  // sinnvolle Defaults (kannst du später per GUI tunen)
+  sky.material.uniforms.turbidity.value = 2.0;
+  sky.material.uniforms.rayleigh.value = 1.5;
+  sky.material.uniforms.mieCoefficient.value = 0.0035;
+  sky.material.uniforms.mieDirectionalG.value = 0.85;
+
+  // wichtig, damit andere Dinge (z. B. Sterne) darüber gezeichnet werden können
+  sky.material.depthWrite = false;
+  sky.renderOrder = 0;
+
+  scene.add(sky);
+
+
+
   scene.add(group);
-  lights = { group, hemi, sun, sunDisk, sunTarget, moon, moonDisk, moonTarget, starField };
+  lights = { group, hemi, sun, sunTarget, moon, moonDisk, moonTarget, starField, sky };
 
   // initiale Uhrzeit anwenden
   setTimeOfDay(state.hours);
@@ -155,31 +155,80 @@ export function setTimeOfDay(hours){
   if (!lights) return;
   state.hours = hours;
 
-  const { sun, sunDisk, sunTarget, moon, moonDisk, moonTarget, hemi, starField } = lights;
+  const { sun, sunTarget, moon, moonDisk, moonTarget, hemi, starField, sky } = lights;
+
+  // --- deine bestehende Zeit->Licht-Berechnung nutzen ---
   const p = computeFromHours(hours);
 
-  // Sonne
+  // === Sonne ===
   sun.position.copy(p.sunPos);
   sun.color.copy(p.sunColor);
   sun.intensity = p.sunI;
-  sunTarget.position.set(0,0,0);
+  sunTarget.position.set(0, 0, 0);
   sun.target.updateMatrixWorld?.();
-  sunDisk.position.copy(p.sunPos);
-  sunDisk.visible = p.sunI > 0.001;
 
-  // Mond
+  // === Mond ===
   moon.position.copy(p.moonPos);
   moon.color.set(p.moonColor);
   moon.intensity = p.moonI;
-  moonTarget.position.set(0,0,0);
+  moonTarget.position.set(0, 0, 0);
   moon.target.updateMatrixWorld?.();
-  moonDisk.position.copy(p.moonPos);
-  moonDisk.visible = p.moonI > 0.001;
 
-  // Hemi & Sterne
-  hemi.intensity = p.hemiI;
-  if (starField) starField.visible = !p.isDay;
+  if (moonDisk){
+    moonDisk.position.copy(p.moonPos);
+    moonDisk.visible = p.moonI > 0.001;
+  }
+
+  // === Hemi & Sterne (Grundlogik) ===
+  hemi.intensity = p.isDay ? p.hemiI : 0.02; // nachts extra dunkel
+
+  if (starField){
+    // sanftes Sterne-Fade basierend auf Nacht-Intensität (s.u.)
+    // Default-Opacity deiner Stars war 0.8
+    const mat = starField.material;
+    // nightT wird weiter unten berechnet; fallback, falls sky fehlt:
+    let nightT = p.isDay ? 0 : 1;
+    // setzen wir weiter unten genauer, wenn Sky aktiv ist
+    mat.opacity = 0.8 * nightT;
+    starField.visible = mat.opacity > 0.02;
+  }
+
+  // === Sky: Richtung + echte Nacht abdunkeln ===
+  if (sky) {
+    // 1) Richtung auf Sonnenlicht normalisieren
+    const sunDir = sun.position.clone().normalize();
+    sky.material.uniforms.sunPosition.value.copy(sunDir);
+
+    // 2) Nacht-Intensität aus Uhrzeit/Elevation ableiten (weich zwischen -6° und -12°)
+    //    – ohne Abhängigkeit von externen Helpern (lokales smoothstep)
+    const sstep = (e0, e1, x) => {
+      const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+      return t * t * (3 - 2 * t);
+    };
+
+    const h = ((hours % 24) + 24) % 24;
+    const phi = (h / 24) * Math.PI * 2 - Math.PI / 2; // 06h=Horizon, 12h=Zenith
+    const elevRad = Math.asin(Math.sin(phi));          // -π/2..π/2
+    const elevDeg = elevRad * 180 / Math.PI;
+
+    // nightT: 0 bei -6° (Ende bürgerl. Dämmerung), 1 bei -12° (astron. Nacht)
+    const nightT = 1.0 - sstep(-12, -6, elevDeg);
+
+    // 3) Sky-Uniforms für die Nacht herunterfahren
+    const u = sky.material.uniforms;
+    u.rayleigh.value       = lerp(1.5, 0.0, nightT);    // Blauanteil ausblenden
+    u.mieCoefficient.value = lerp(0.0035, 0.0, nightT); // Dunst/Halo aus
+    u.turbidity.value      = lerp(2.0, 1.0, nightT);    // weniger Dunst = dunkler
+
+    // 4) Sterne-Opacity sauber mit nightT setzen (überschreibt groben Wert oben)
+    if (starField){
+      const m = starField.material;
+      m.opacity = 0.8 * nightT;
+      starField.visible = m.opacity > 0.02;
+    }
+  }
 }
+
 
 export function updateSun(deltaSec=0){
   if (!lights) return;
@@ -187,7 +236,6 @@ export function updateSun(deltaSec=0){
     setTimeOfDay(state.hours + state.speed*deltaSec);
   }
   // Disks an Licht-Position koppeln (falls extern bewegt)
-  lights.sunDisk.position.copy(lights.sun.position);
   lights.moonDisk.position.copy(lights.moon.position);
 }
 
