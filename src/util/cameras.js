@@ -18,7 +18,7 @@ export function createCameras(renderer, canvas, options = {}) {
     orbit.target.set(0,10,0);
     function updateOrbit() { if (active === 'orbit') orbit.update(); }
 
-    // ===== DRONE (Free-Fly – einfacher bedienbar) =====
+    // ===== DRONE =====
     const conf = Object.assign(
         { flySpeed: 32, height: 120, minHeight: 25, maxHeight: 350, turbo: 1.8 },
         options.drone || {}
@@ -28,20 +28,18 @@ export function createCameras(renderer, canvas, options = {}) {
     let yaw = 0, pitch = -0.08;
     const keys = { w:false, a:false, s:false, d:false, q:false, e:false, shift:false, rmb:false, lastX:0, lastY:0 };
 
-    // vereinfachte Tasten
     const onKey = (e, down) => {
         if (e.code === 'KeyW') keys.w = down;
         if (e.code === 'KeyA') keys.a = down;
         if (e.code === 'KeyS') keys.s = down;
         if (e.code === 'KeyD') keys.d = down;
-        if (e.code === 'KeyQ') keys.q = down; // runter
-        if (e.code === 'KeyE') keys.e = down; // hoch
-        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = down; // Turbo
+        if (e.code === 'KeyQ') keys.q = down;
+        if (e.code === 'KeyE') keys.e = down;
+        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = down;
     };
     window.addEventListener('keydown', e=>onKey(e,true));
     window.addEventListener('keyup',   e=>onKey(e,false));
 
-    // Rechte Maustaste halten = Blick drehen (ohne PointerLock)
     renderer.domElement.addEventListener('contextmenu', e=>e.preventDefault());
     renderer.domElement.addEventListener('mousedown', (e)=>{ if (e.button===2){ keys.rmb=true; keys.lastX=e.clientX; keys.lastY=e.clientY; }});
     window.addEventListener('mouseup', (e)=>{ if (e.button===2) keys.rmb=false; });
@@ -56,7 +54,6 @@ export function createCameras(renderer, canvas, options = {}) {
         pitch = Math.max(-1.3, Math.min(1.3, pitch));
     });
 
-    // Mausrad: Höhe ändern
     renderer.domElement.addEventListener('wheel', (e) => {
         if (active !== 'drone') return;
         e.preventDefault();
@@ -70,7 +67,6 @@ export function createCameras(renderer, canvas, options = {}) {
         if (active !== 'drone') return;
         drone.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
 
-        // sehr einfache, „griffige“ Steuerung
         const mult = keys.shift ? conf.turbo : 1.0;
         const speed = conf.flySpeed * mult * dt;
 
@@ -95,15 +91,29 @@ export function createCameras(renderer, canvas, options = {}) {
 
     // ===== FP (Ego) =====
     const fp = new THREE.PerspectiveCamera(70, aspect, 0.05, 5000);
-    fp.position.set(0, 1.85, 3.2); // minimal höher/näher -> wirkt größer
-    const kfp = { w:false, a:false, s:false, d:false, locked:false };
+    const FP_BASE_HEIGHT = 1.85;          // "Boden" / Augenhöhe
+    fp.position.set(0, FP_BASE_HEIGHT, 3.2);
+
+    const kfp = { w:false, a:false, s:false, d:false, locked:false, jumping:false };
     let yawF=0, pitchF=0;
+    let fpVelY = 0;                       // vertikale Geschwindigkeit
+    const GRAVITY = -24;                  // m/s^2 ungefähr
+    const JUMP_SPEED = 9.5;               // Sprung-Impuls
 
     const onKeyFp = (e, down) => {
         if (e.code === 'KeyW') kfp.w = down;
         if (e.code === 'KeyA') kfp.a = down;
         if (e.code === 'KeyS') kfp.s = down;
         if (e.code === 'KeyD') kfp.d = down;
+
+        // springen
+        if (e.code === 'Space' && down) {
+            // nur springen, wenn wir auf dem Boden sind
+            if (Math.abs(fp.position.y - FP_BASE_HEIGHT) < 0.001) {
+                fpVelY = JUMP_SPEED;
+                kfp.jumping = true;
+            }
+        }
     };
     window.addEventListener('keydown', e=>onKeyFp(e,true));
     window.addEventListener('keyup',   e=>onKeyFp(e,false));
@@ -125,6 +135,8 @@ export function createCameras(renderer, canvas, options = {}) {
 
     function updateFp(dt) {
         if (active!=='fp') return;
+
+        // horizontale Bewegung
         const dir = new THREE.Vector3();
         if (kfp.w) dir.z -= 1;
         if (kfp.s) dir.z += 1;
@@ -139,6 +151,17 @@ export function createCameras(renderer, canvas, options = {}) {
         const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
         fp.position.addScaledVector(forward, dir.z * speed);
         fp.position.addScaledVector(right,   dir.x * speed);
+
+        // vertikale Bewegung (Sprung + Gravitation)
+        fpVelY += GRAVITY * dt;                       // Gravitation anwenden
+        fp.position.y += fpVelY * dt;                 // vertikale Position updaten
+
+        // Boden-Kollision
+        if (fp.position.y < FP_BASE_HEIGHT) {
+            fp.position.y = FP_BASE_HEIGHT;
+            fpVelY = 0;
+            kfp.jumping = false;
+        }
     }
 
     return {
