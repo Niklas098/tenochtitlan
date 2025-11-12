@@ -61,20 +61,53 @@ function makeStars() {
 }
 
 // ---------- Orbit & Lighting from time ----------
+// ── Stellschrauben (oben in lights.js einmal definieren) ─────────────
+const GEO = {
+  latDeg: 19.4,          // Tenochtitlan / CDMX ~19.4°N
+  declDeg: 0,            // Sonnen-Deklinationswinkel: 0=Äquinoktium, +23.44° (Junisolst.), -23.44° (Dezsolst.)
+  R: 2600,               // Himmelsradius
+  moonPhaseOffsetDeg: 20,// Mond ~ gegenüber + kleiner Versatz
+  moonTiltDeltaDeg: -10  // Mondbahn ~ etwas flacher als Sonne
+};
+// ─────────────────────────────────────────────────────────────────────
+
 function computeFromHours(hours){
-  const h = ((hours%24)+24)%24;
-  // 06:00 -> vorn am Horizont; 12:00 -> hoch; 18:00 -> hinten am Horizont
-  const phi = (h/24)*Math.PI*2 - Math.PI/2;
-  const R = 2600;         // Himmelsradius
-  const tilt = 0.45;      // Bahnneigung (0..1)
-  const x = R*Math.cos(phi);
-  const z = R*Math.sin(phi);
-  const y = R*Math.sin(phi)*tilt;
+  const h = ((hours % 24) + 24) % 24;
 
-  const elevNorm = clamp01((y/(R*tilt) + 1)/2); // -1..1 -> 0..1
-  const isDay = y > 0;
+  // Stundenwinkel: 06:00 → 0, 12:00 → +π/2, 18:00 → π
+  const theta = (h / 24) * Math.PI * 2 - Math.PI / 2;
 
-  // Farbtemperatur Sonne: warm morgens/abends, kühler mittags
+  // Geografie & Jahreszeit:
+  const lat  = THREE.MathUtils.degToRad(GEO.latDeg);
+  const decl = THREE.MathUtils.degToRad(GEO.declDeg);
+
+  // Maximale Mittagshöhe (Elevation am lokalen Mittag):
+  // maxElev = 90° - |Breite - Deklination|
+  const maxElevRad = (Math.PI / 2) - Math.abs(lat - decl);
+
+  // Bahnneigung als „Inklination“ (wie weit die Tagesbahn über die Ebene kippt)
+  const iSun  = Math.max(0, maxElevRad); // sicherstellen ≥0
+  const iMoon = Math.max(0, iSun + THREE.MathUtils.degToRad(GEO.moonTiltDeltaDeg));
+
+  const R = GEO.R;
+
+  // Sonnenposition (Sphärische Abbildung auf geneigte Kreisbahn)
+  const xS = R * Math.cos(theta);
+  const yS = R * Math.sin(theta) * Math.sin(iSun);
+  const zS = R * Math.sin(theta) * Math.cos(iSun);
+
+  // Mondposition (~ gegenüber, leicht versetzt)
+  const thetaM = theta + Math.PI + THREE.MathUtils.degToRad(GEO.moonPhaseOffsetDeg);
+  const xM = R * Math.cos(thetaM);
+  const yM = R * Math.sin(thetaM) * Math.sin(iMoon);
+  const zM = R * Math.sin(thetaM) * Math.cos(iMoon);
+
+  // Elevation der Sonne als Sinus (für Farbe/Intensität)
+  const elevSin = Math.sin(theta) * Math.sin(iSun);  // ≈ sin(Elevation)
+  const elevNorm = clamp01((elevSin + 1) / 2);       // 0..1
+  const isDay = elevSin > 0;
+
+  // Farbtemperatur (warm bei flacher Sonne, kühler mittags)
   const sunK = isDay ? lerp(2200, 6500, Math.pow(elevNorm, 0.65)) : 2200;
   const sunColor = kelvinToRGB(sunK);
   const moonColor = new THREE.Color(0xbfd8ff);
@@ -82,14 +115,15 @@ function computeFromHours(hours){
   // Intensitäten
   const sunI  = isDay ? Math.pow(elevNorm, 1.25) * 2.1 : 0.0;
   const hemiI = isDay ? lerp(0.12, 0.40, Math.pow(elevNorm, 0.7)) : 0.06;
-  const moonI = !isDay ? lerp(0.0, 0.6, clamp01((-y)/(R*tilt))) : 0.0;
+  const moonI = !isDay ? lerp(0.0, 0.6, clamp01(-elevSin)) : 0.0;
 
   return {
-    sunPos: new THREE.Vector3(x,y,z),
-    moonPos: new THREE.Vector3(-x, -y*0.8, -z), // gegenüberliegend, leicht tiefer
+    sunPos: new THREE.Vector3(xS, yS, zS),
+    moonPos: new THREE.Vector3(xM, yM, zM),
     sunColor, moonColor, sunI, moonI, hemiI, isDay
   };
 }
+
 
 // ---------- Public API ----------
 export function createLights(scene){
@@ -111,7 +145,6 @@ export function createLights(scene){
   sun.shadow.camera.bottom = -1800;
   const sunTarget = new THREE.Object3D();
   group.add(sunTarget); sun.target = sunTarget;
-
   group.add(sun);
 
   // Mond (Spot) + Disk
@@ -128,17 +161,7 @@ export function createLights(scene){
   // Himmel (Skybox)
   const sky = new Sky();
   sky.scale.setScalar(10000);     // groß genug, um alles zu umhüllen
-  // sinnvolle Defaults (kannst du später per GUI tunen)
-  sky.material.uniforms.turbidity.value = 2.0;
-  sky.material.uniforms.rayleigh.value = 1.5;
-  sky.material.uniforms.mieCoefficient.value = 0.0035;
-  sky.material.uniforms.mieDirectionalG.value = 0.85;
-
-  // wichtig, damit andere Dinge (z. B. Sterne) darüber gezeichnet werden können
-  sky.material.depthWrite = false;
-  sky.renderOrder = 0;
-
-  scene.add(sky);
+  scene.add(sky)
 
 
 

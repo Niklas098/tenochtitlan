@@ -16,7 +16,7 @@ export function createRenderer(canvas) {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 1;
 
     // ⚙️ Performance: softere Shadows
     renderer.shadowMap.enabled = true;

@@ -68,7 +68,6 @@ function init() {
       // 🔹 Legacy-Shortcut bleibt: toggelt Tag/Nacht (intern Zeit ~13h / ~1h)
       const day = !isDaytime();
       setDayNight(day);
-      scene.background = day ? new THREE.Color(0xC9D5E6) : new THREE.Color(0x05070A);
       showStars(!day);
     }
     if (e.code === 'KeyG') {
@@ -148,5 +147,7 @@ loadGLB(scene, {
   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
   scale: 0.04,
 });
+
+
 
 
