@@ -1,8 +1,12 @@
 // src/util/cameras.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { isInsideAnyHitbox, findSafeSpawnPosition } from './collision.js';
 
 let active = 'drone';
+let onCameraSwitch = null;
+const FP_BASE_HEIGHT = 1.85;          // "Boden" / Augenhöhe
+const SWITCH_TMP = new THREE.Vector3();
 
 export function createCameras(renderer, canvas, options = {}) {
     const aspect = window.innerWidth / window.innerHeight;
@@ -83,7 +87,14 @@ export function createCameras(renderer, canvas, options = {}) {
         if (keys.e) move.y += speed;
         if (keys.q) move.y -= speed;
 
-        drone.position.add(move);
+        if (move.lengthSq() > 0) {
+            const candidate = drone.position.clone().add(move);
+            candidate.y = THREE.MathUtils.clamp(candidate.y, conf.minHeight, conf.maxHeight);
+            if (!isInsideAnyHitbox(candidate)) {
+                drone.position.copy(candidate);
+            }
+        }
+
         drone.position.y = THREE.MathUtils.clamp(drone.position.y, conf.minHeight, conf.maxHeight);
     }
 
@@ -91,7 +102,6 @@ export function createCameras(renderer, canvas, options = {}) {
 
     // ===== FP (Ego) =====
     const fp = new THREE.PerspectiveCamera(70, aspect, 0.05, 5000);
-    const FP_BASE_HEIGHT = 1.85;          // "Boden" / Augenhöhe
     fp.position.set(0, FP_BASE_HEIGHT, 3.2);
 
     const kfp = { w:false, a:false, s:false, d:false, locked:false, jumping:false };
@@ -149,8 +159,16 @@ export function createCameras(renderer, canvas, options = {}) {
         fp.getWorldDirection(forward);
         forward.y = 0; forward.normalize();
         const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
-        fp.position.addScaledVector(forward, dir.z * speed);
-        fp.position.addScaledVector(right,   dir.x * speed);
+        const move = new THREE.Vector3();
+        move.addScaledVector(forward, dir.z * speed);
+        move.addScaledVector(right,   dir.x * speed);
+
+        if (move.lengthSq() > 0) {
+            const candidate = fp.position.clone().add(move);
+            if (!isInsideAnyHitbox(candidate)) {
+                fp.position.copy(candidate);
+            }
+        }
 
         // vertikale Bewegung (Sprung + Gravitation)
         fpVelY += GRAVITY * dt;                       // Gravitation anwenden
@@ -164,6 +182,17 @@ export function createCameras(renderer, canvas, options = {}) {
         }
     }
 
+    onCameraSwitch = (prev, next) => {
+        if (prev === next) return;
+        if (next === 'fp') {
+            SWITCH_TMP.set(drone.position.x, FP_BASE_HEIGHT, drone.position.z);
+            const safe = findSafeSpawnPosition(SWITCH_TMP);
+            fp.position.copy(safe);
+            fpVelY = 0;
+            kfp.jumping = false;
+        }
+    };
+
     return {
         orbit: { camera: orbitCam, controls: orbit, update: updateOrbit },
         drone: { camera: drone, update: updateDrone, resetHeight, _conf: conf },
@@ -171,5 +200,10 @@ export function createCameras(renderer, canvas, options = {}) {
     };
 }
 
-export function switchToCamera(type) { active = type; }
+export function switchToCamera(type) {
+    if (active === type) return;
+    const prev = active;
+    active = type;
+    if (onCameraSwitch) onCameraSwitch(prev, type);
+}
 export function getActiveCameraType() { return active; }

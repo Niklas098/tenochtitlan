@@ -1,6 +1,7 @@
 // src/scene/city/city.js
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createHitboxForGLB } from '../../util/collision.js';
 
 // -----------------------------------------------------------------------------
 // Debug: optionaler Wireframe für geladene Modelle
@@ -268,6 +269,8 @@ export function loadGLB(
           }
         });
       }
+
+      createHitboxForGLB(scene, model);
 
       if (onLoaded) onLoaded(model, gltf);
     }

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { createRenderer } from '../util/renderer.js';
 import { createCameras, switchToCamera, getActiveCameraType } from '../util/cameras.js';
+import { toggleHitboxVisibility, findSafeSpawnPosition } from '../util/collision.js';
 import {
   createLights,
   setDayNight,          // legacy toggle bleibt nutzbar (mappt auf Zeit)
@@ -37,6 +38,12 @@ function init() {
   cameras = createCameras(renderer, canvas, {
     drone: { flySpeed: 32, height: 120, minHeight: 25, maxHeight: 350, turbo: 1.8 }
   });
+
+  const safeDronePos = findSafeSpawnPosition(cameras.drone.camera.position);
+  cameras.drone.camera.position.copy(safeDronePos);
+  const safeFpPos = findSafeSpawnPosition(cameras.fp.camera.position);
+  cameras.fp.camera.position.copy(safeFpPos);
+
   switchToCamera('drone');
 
   lights = createLights(scene);
@@ -75,6 +82,9 @@ function init() {
     }
     if (e.code === 'KeyR') {
       cameras.drone.resetHeight();
+    }
+    if (e.key === 'h' || e.key === 'H') {
+      toggleHitboxVisibility();
     }
 
     // 🔹 Komfort: Zeit manuell nudge’n (optional)
@@ -145,9 +155,6 @@ loadGLB(scene, {
   url: '/models/pyramide.glb',
   position: { x: 0, y: 0, z: 0 },
   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-  scale: 0.04,
+  scale: 0.02,
 });
-
-
-
 
