@@ -1,6 +1,7 @@
 // src/util/lights.js
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { setTorchNightMode } from '../scene/torch/torch.js';
 
 let lights = null;
 let state = { hours: 13.0, auto: false, speed: 0.25 }; // speed: Stunden pro Sekunde
@@ -182,6 +183,7 @@ export function setTimeOfDay(hours){
 
   // --- deine bestehende Zeit->Licht-Berechnung nutzen ---
   const p = computeFromHours(hours);
+  setTorchNightMode(!p.isDay);
 
   // === Sonne ===
   sun.position.copy(p.sunPos);
@@ -274,9 +276,6 @@ export const setTimeSpeed = (hoursPerSecond)=> { state.speed = hoursPerSecond; }
 export function setDayNight(day){
   setTimeOfDay(day ? 13.0 : 1.0); // Tag ~13h, Nacht ~1h
 }
-
-// Kein Torch mehr – leere Funktion, falls irgendwo importiert:
-export function attachTorchTo(){ /* no-op */ }
 
 // Sterne manuell toggeln (optional)
 export function showStars(on){

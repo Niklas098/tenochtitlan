@@ -8,7 +8,6 @@ import {
   setDayNight,          // legacy toggle bleibt nutzbar (mappt auf Zeit)
   updateSun,
   isDaytime,
-  attachTorchTo,        // no-op, kann bleiben
   showStars,
   // 🔹 NEU: Zeitsteuerung (Orbit)
   setTimeOfDay,
@@ -25,6 +24,10 @@ import {
   setPlacerActiveCamera,
   registerPlaceableObject
 } from '../ui/placer.js';
+import {
+  createTorchForCamera,
+  updateTorch
+} from '../scene/torch/torch.js';
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
 let placerActive = false;
@@ -59,10 +62,14 @@ function init() {
   // Kleinere Map -> FP wirkt größer
   buildCity(scene, { groundSize: 2400 });
 
-  // 🔹 Fackel war entfernt – call ist jetzt No-Op, darf drin bleiben
-  attachTorchTo(cameras.fp.camera);
-
   gui = createGUI(renderer, cameras, lights);
+
+  createTorchForCamera(cameras.fp.camera, {
+    scene,
+    offset: { x: 0.38, y: -0.42, z: -0.78 },
+    rotation: { x: -0.33, y: 0.34, z: 0.06 },
+    intensity: 3.8
+  });
 
   initPlacer({
     scene,
@@ -150,6 +157,7 @@ function animate() {
 
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
+  updateTorch(dt);
 
   renderer.render(scene, cam);
 
@@ -187,6 +195,7 @@ loadGLB(scene, {
   position: { x: 0, y: 0, z: 0 },
   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
   scale: 1.7,
+  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
   onLoaded: (model) => {
     registerPlaceableObject(model, 'Tempel-main');
   }
@@ -197,6 +206,7 @@ loadGLB(scene, {
   position: { x: 0, y: 0, z: 0 },
   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
   scale: 1.7,
+  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
   onLoaded: (model) => {
     registerPlaceableObject(model, 'Tempel2-main');
   }

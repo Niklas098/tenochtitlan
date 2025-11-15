@@ -231,6 +231,7 @@ export function loadGLB(
     receiveShadow = true,
     lowerBy = 0.35,
     showWireframe = false,
+    hitboxOptions = null,
     onLoaded = null
   } = {}
 ) {
@@ -270,7 +271,7 @@ export function loadGLB(
         });
       }
 
-      createHitboxForGLB(scene, model);
+      createHitboxForGLB(scene, model, hitboxOptions || undefined);
 
       if (onLoaded) onLoaded(model, gltf);
     }

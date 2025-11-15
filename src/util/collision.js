@@ -5,13 +5,23 @@ import { OBB } from 'three/examples/jsm/math/OBB.js';
 /**
  * Collection of all generated collision hitboxes for loaded GLB assets.
  * Each entry stores the debug mesh plus the source mesh and bounding info for queries.
- * @type {Array<{mesh: THREE.Mesh, obb: OBB, source: THREE.Object3D|null, localCenter: THREE.Vector3|null}>}
+ * @type {Array<{
+ *   mesh: THREE.Mesh,
+ *   obb: OBB,
+ *   source: THREE.Object3D|null,
+ *   localCenter: THREE.Vector3|null,
+ *   localSize: THREE.Vector3|null,
+ *   config: ReturnType<typeof normalizeHitboxOptions>,
+ *   baseSize: THREE.Vector3|null
+ * }>}
  */
 export const collisionBoxes = [];
 
-const HITBOX_MARGIN_XZ = 0.6;
-const HITBOX_MARGIN_Y = 0.3;
-const MIN_DIMENSION = 0.15;
+const DEFAULT_HITBOX_OPTIONS = {
+  marginXZ: 0.6,
+  marginY: 0.3,
+  minDimension: 0.15
+};
 
 const HITBOX_MATERIAL = new THREE.MeshBasicMaterial({
   color: 0xff3333,
@@ -63,21 +73,23 @@ const _uuidScratch = new Set();
  *
  * @param {THREE.Scene} scene - Scene that receives the generated hitbox meshes.
  * @param {THREE.Object3D} gltfScene - Root object of the loaded GLB.
+ * @param {{marginXZ?:number, marginY?:number, minDimension?:number}} [options]
  */
-export function createHitboxForGLB(scene, gltfScene) {
+export function createHitboxForGLB(scene, gltfScene, options = {}) {
   if (!scene || !gltfScene) return;
+  const config = normalizeHitboxOptions(options);
 
   gltfScene.updateWorldMatrix(true, true);
   let created = 0;
 
   gltfScene.traverse((child) => {
     if (!child.isMesh || !child.geometry) return;
-    created += addHitboxForMesh(scene, child) ? 1 : 0;
+    created += addHitboxForMesh(scene, child, config) ? 1 : 0;
   });
 
   // Fallback: if the GLB had no meshes (rare), wrap the root once so collisions still work.
   if (created === 0) {
-    const entry = buildFallbackHitbox(scene, gltfScene);
+    const entry = buildFallbackHitbox(scene, gltfScene, config);
     if (entry) {
       collisionBoxes.push(entry);
     }
@@ -163,7 +175,7 @@ export function updateHitboxesForObject(root) {
  * @param {THREE.Mesh} mesh
  * @returns {boolean} True when a hitbox was produced.
  */
-function addHitboxForMesh(scene, mesh) {
+function addHitboxForMesh(scene, mesh, config) {
   const geometry = mesh.geometry;
   if (!geometry?.attributes?.position) return false;
 
@@ -176,6 +188,7 @@ function addHitboxForMesh(scene, mesh) {
   bbox.getSize(_sizeLocal);
   if (_sizeLocal.lengthSq() === 0) return false;
 
+  const localSize = _sizeLocal.clone();
   bbox.getCenter(_centerLocal);
   const localCenter = _centerLocal.clone();
 
@@ -184,9 +197,9 @@ function addHitboxForMesh(scene, mesh) {
   _scaleAbs.set(Math.abs(_scale.x), Math.abs(_scale.y), Math.abs(_scale.z));
 
   _sizeWorld.copy(_sizeLocal).multiply(_scaleAbs);
-  _sizeWorld.x = Math.max(_sizeWorld.x + HITBOX_MARGIN_XZ, MIN_DIMENSION);
-  _sizeWorld.y = Math.max(_sizeWorld.y + HITBOX_MARGIN_Y, MIN_DIMENSION);
-  _sizeWorld.z = Math.max(_sizeWorld.z + HITBOX_MARGIN_XZ, MIN_DIMENSION);
+  _sizeWorld.x = Math.max(_sizeWorld.x + config.marginXZ, config.minDimension);
+  _sizeWorld.y = Math.max(_sizeWorld.y + config.marginY, config.minDimension);
+  _sizeWorld.z = Math.max(_sizeWorld.z + config.marginXZ, config.minDimension);
 
   _centerWorld.copy(_centerLocal).applyMatrix4(mesh.matrixWorld);
 
@@ -204,7 +217,15 @@ function addHitboxForMesh(scene, mesh) {
   hitboxMesh.userData.isCollisionHitbox = true;
 
   scene.add(hitboxMesh);
-  collisionBoxes.push({ mesh: hitboxMesh, obb, source: mesh, localCenter });
+  collisionBoxes.push({
+    mesh: hitboxMesh,
+    obb,
+    source: mesh,
+    localCenter,
+    localSize,
+    config,
+    baseSize: _sizeWorld.clone()
+  });
   return true;
 }
 
@@ -214,16 +235,17 @@ function addHitboxForMesh(scene, mesh) {
  * @param {THREE.Object3D} object
  * @returns {{mesh:THREE.Mesh, obb:OBB}|null}
  */
-function buildFallbackHitbox(scene, object) {
+function buildFallbackHitbox(scene, object, config) {
   _worldBox.setFromObject(object);
   if (!isFinite(_worldBox.min.x) || !isFinite(_worldBox.max.x)) return null;
 
   _worldBox.getSize(_sizeWorld);
   if (_sizeWorld.lengthSq() === 0) return null;
 
-  _sizeWorld.x = Math.max(_sizeWorld.x + HITBOX_MARGIN_XZ, MIN_DIMENSION);
-  _sizeWorld.y = Math.max(_sizeWorld.y + HITBOX_MARGIN_Y, MIN_DIMENSION);
-  _sizeWorld.z = Math.max(_sizeWorld.z + HITBOX_MARGIN_XZ, MIN_DIMENSION);
+  const localSize = _sizeWorld.clone();
+  _sizeWorld.x = Math.max(_sizeWorld.x + config.marginXZ, config.minDimension);
+  _sizeWorld.y = Math.max(_sizeWorld.y + config.marginY, config.minDimension);
+  _sizeWorld.z = Math.max(_sizeWorld.z + config.marginXZ, config.minDimension);
   _worldBox.getCenter(_centerWorld);
   const localCenter = object.worldToLocal(_centerWorld.clone());
 
@@ -242,19 +264,45 @@ function buildFallbackHitbox(scene, object) {
   hitboxMesh.userData.isCollisionHitbox = true;
 
   scene.add(hitboxMesh);
-  return { mesh: hitboxMesh, obb, source: object, localCenter };
+  return {
+    mesh: hitboxMesh,
+    obb,
+    source: object,
+    localCenter,
+    localSize,
+    config,
+    baseSize: _sizeWorld.clone()
+  };
 }
 
 function refreshHitboxEntry(entry) {
-  const { source, localCenter, mesh, obb } = entry;
-  if (!source || !localCenter || !mesh || !obb) return;
+  const { source, localCenter, localSize, mesh, obb, config, baseSize } = entry;
+  if (!source || !localCenter || !localSize || !mesh || !obb || !config) return;
   source.updateWorldMatrix(true, false);
+  source.matrixWorld.decompose(_position, _quaternion, _scale);
+  _scaleAbs.set(Math.abs(_scale.x), Math.abs(_scale.y), Math.abs(_scale.z));
+
   _tmpVec.copy(localCenter).applyMatrix4(source.matrixWorld);
   obb.center.copy(_tmpVec);
+
+  _sizeWorld.copy(localSize).multiply(_scaleAbs);
+  _sizeWorld.x = Math.max(_sizeWorld.x + config.marginXZ, config.minDimension);
+  _sizeWorld.y = Math.max(_sizeWorld.y + config.marginY, config.minDimension);
+  _sizeWorld.z = Math.max(_sizeWorld.z + config.marginXZ, config.minDimension);
+  _halfSize.copy(_sizeWorld).multiplyScalar(0.5);
+  obb.halfSize.copy(_halfSize);
+
   _rotationMatrix.extractRotation(source.matrixWorld);
   obb.rotation.setFromMatrix4(_rotationMatrix);
+
   mesh.position.copy(obb.center);
   mesh.quaternion.setFromRotationMatrix(_rotationMatrix);
+  if (baseSize) {
+    const sx = baseSize.x !== 0 ? _sizeWorld.x / baseSize.x : 1;
+    const sy = baseSize.y !== 0 ? _sizeWorld.y / baseSize.y : 1;
+    const sz = baseSize.z !== 0 ? _sizeWorld.z / baseSize.z : 1;
+    mesh.scale.set(sx, sy, sz);
+  }
   mesh.updateMatrixWorld(true);
 }
 
@@ -271,4 +319,12 @@ function toVector3(source, target) {
     target.set(source?.x ?? 0, source?.y ?? 0, source?.z ?? 0);
   }
   return target;
+}
+
+function normalizeHitboxOptions(options = {}) {
+  return {
+    marginXZ: Math.max(0, Number.isFinite(options.marginXZ) ? options.marginXZ : DEFAULT_HITBOX_OPTIONS.marginXZ),
+    marginY: Math.max(0, Number.isFinite(options.marginY) ? options.marginY : DEFAULT_HITBOX_OPTIONS.marginY),
+    minDimension: Math.max(1e-4, Number.isFinite(options.minDimension) ? options.minDimension : DEFAULT_HITBOX_OPTIONS.minDimension)
+  };
 }
