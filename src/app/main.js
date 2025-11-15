@@ -181,3 +181,23 @@ loadGLB(scene, {
     registerPlaceableObject(model, 'pyramide-main');
   }
 });
+
+loadGLB(scene, {
+  url: '/models/Tempel.glb',
+  position: { x: 0, y: 0, z: 0 },
+  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+  scale: 1.7,
+  onLoaded: (model) => {
+    registerPlaceableObject(model, 'Tempel-main');
+  }
+});
+
+loadGLB(scene, {
+  url: '/models/Tempel.glb',
+  position: { x: 0, y: 0, z: 0 },
+  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+  scale: 1.7,
+  onLoaded: (model) => {
+    registerPlaceableObject(model, 'Tempel2-main');
+  }
+});
