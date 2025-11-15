@@ -4,8 +4,8 @@ import { OBB } from 'three/examples/jsm/math/OBB.js';
 
 /**
  * Collection of all generated collision hitboxes for loaded GLB assets.
- * Each entry stores the debug mesh plus an oriented bounding box for queries.
- * @type {Array<{mesh: THREE.Mesh, obb: OBB}>}
+ * Each entry stores the debug mesh plus the source mesh and bounding info for queries.
+ * @type {Array<{mesh: THREE.Mesh, obb: OBB, source: THREE.Object3D|null, localCenter: THREE.Vector3|null}>}
  */
 export const collisionBoxes = [];
 
@@ -55,6 +55,7 @@ const _quaternion = new THREE.Quaternion();
 const _rotationMatrix = new THREE.Matrix4();
 const _obbRotation = new THREE.Matrix3();
 const _worldBox = new THREE.Box3();
+const _uuidScratch = new Set();
 
 /**
  * Builds invisible hitboxes for every mesh contained in the loaded GLB.
@@ -137,6 +138,26 @@ export function findSafeSpawnPosition(preferredPos) {
 }
 
 /**
+ * Recomputes hitbox world transforms for all entries that belong to the provided object.
+ * Call this after moving/rotating a GLB that already spawned hitboxes.
+ *
+ * @param {THREE.Object3D} root - Root object that potentially moved.
+ */
+export function updateHitboxesForObject(root) {
+  if (!root) return;
+  root.updateMatrixWorld(true);
+  _uuidScratch.clear();
+  root.traverse((child) => _uuidScratch.add(child.uuid));
+  for (const entry of collisionBoxes) {
+    if (!entry?.source || !entry.localCenter) continue;
+    if (_uuidScratch.has(entry.source.uuid)) {
+      refreshHitboxEntry(entry);
+    }
+  }
+  _uuidScratch.clear();
+}
+
+/**
  * Creates an oriented hitbox for a specific mesh.
  * @param {THREE.Scene} scene
  * @param {THREE.Mesh} mesh
@@ -156,6 +177,7 @@ function addHitboxForMesh(scene, mesh) {
   if (_sizeLocal.lengthSq() === 0) return false;
 
   bbox.getCenter(_centerLocal);
+  const localCenter = _centerLocal.clone();
 
   mesh.updateWorldMatrix(true, false);
   mesh.matrixWorld.decompose(_position, _quaternion, _scale);
@@ -182,7 +204,7 @@ function addHitboxForMesh(scene, mesh) {
   hitboxMesh.userData.isCollisionHitbox = true;
 
   scene.add(hitboxMesh);
-  collisionBoxes.push({ mesh: hitboxMesh, obb });
+  collisionBoxes.push({ mesh: hitboxMesh, obb, source: mesh, localCenter });
   return true;
 }
 
@@ -203,6 +225,7 @@ function buildFallbackHitbox(scene, object) {
   _sizeWorld.y = Math.max(_sizeWorld.y + HITBOX_MARGIN_Y, MIN_DIMENSION);
   _sizeWorld.z = Math.max(_sizeWorld.z + HITBOX_MARGIN_XZ, MIN_DIMENSION);
   _worldBox.getCenter(_centerWorld);
+  const localCenter = object.worldToLocal(_centerWorld.clone());
 
   object.updateWorldMatrix(true, true);
   _rotationMatrix.extractRotation(object.matrixWorld);
@@ -219,7 +242,20 @@ function buildFallbackHitbox(scene, object) {
   hitboxMesh.userData.isCollisionHitbox = true;
 
   scene.add(hitboxMesh);
-  return { mesh: hitboxMesh, obb };
+  return { mesh: hitboxMesh, obb, source: object, localCenter };
+}
+
+function refreshHitboxEntry(entry) {
+  const { source, localCenter, mesh, obb } = entry;
+  if (!source || !localCenter || !mesh || !obb) return;
+  source.updateWorldMatrix(true, false);
+  _tmpVec.copy(localCenter).applyMatrix4(source.matrixWorld);
+  obb.center.copy(_tmpVec);
+  _rotationMatrix.extractRotation(source.matrixWorld);
+  obb.rotation.setFromMatrix4(_rotationMatrix);
+  mesh.position.copy(obb.center);
+  mesh.quaternion.setFromRotationMatrix(_rotationMatrix);
+  mesh.updateMatrixWorld(true);
 }
 
 /**

@@ -18,8 +18,16 @@ import {
 } from '../util/lights.js';
 import { buildCity, updateCity, loadGLB } from '../scene/city/city.js';
 import createGUI from '../ui/gui.js';
+import {
+  initPlacer,
+  updatePlacer,
+  setPlacerEnabled,
+  setPlacerActiveCamera,
+  registerPlaceableObject
+} from '../ui/placer.js';
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
+let placerActive = false;
 
 init();
 animate();
@@ -56,6 +64,12 @@ function init() {
 
   gui = createGUI(renderer, cameras, lights);
 
+  initPlacer({
+    scene,
+    domElement: renderer.domElement,
+    defaultEnabled: false
+  });
+
   // 🔹 START-Zeit statt setDayNight(): 13:00 = Tag
   setTimeOfDay(13.0);
   showStars(false); // wird eh automatisch aus setTimeOfDay gesteuert
@@ -85,6 +99,10 @@ function init() {
     }
     if (e.key === 'h' || e.key === 'H') {
       toggleHitboxVisibility();
+    }
+    if (e.code === 'KeyP') {
+      placerActive = !placerActive;
+      setPlacerEnabled(placerActive);
     }
 
     // 🔹 Komfort: Zeit manuell nudge’n (optional)
@@ -130,6 +148,9 @@ function animate() {
         : type === 'drone' ? cameras.drone.camera
         : cameras.fp.camera;
 
+  setPlacerActiveCamera(cam);
+  updatePlacer(dt);
+
   renderer.render(scene, cam);
 
   const mem = performance?.memory ? (performance.memory.usedJSHeapSize / (1024*1024)).toFixed(0) : '—';
@@ -156,5 +177,7 @@ loadGLB(scene, {
   position: { x: 0, y: 0, z: 0 },
   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
   scale: 0.02,
+  onLoaded: (model) => {
+    registerPlaceableObject(model, 'pyramide-main');
+  }
 });
-
