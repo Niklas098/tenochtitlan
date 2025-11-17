@@ -1,13 +1,12 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
-import { setTorchNightMode } from '../scene/torch/torch.js';
 
 let lights = null;
 let state = { hours: 13.0, auto: false, speed: 0.25 };
 
 const clamp01 = x => Math.max(0, Math.min(1, x));
 const lerp = (a, b, t) => a + (b - a) * t;
-function kelvinToRGB(k) { // quick Kelvin→RGB approx (2000–10000K)
+function kelvinToRGB(k) {
   const T = k / 100; let r, g, b;
   if (T <= 66) { r = 255; g = 99.4708025861 * Math.log(T) - 161.1195681661; }
   else { r = 329.698727446 * Math.pow(T - 60, -0.1332047592); g = 288.1221695283 * Math.pow(T - 60, -0.0755148492); }
@@ -15,17 +14,13 @@ function kelvinToRGB(k) { // quick Kelvin→RGB approx (2000–10000K)
   return new THREE.Color(clamp01(r / 255), clamp01(g / 255), clamp01(b / 255));
 }
 
-// statische Mondtextur für Mesh/Emissive/Bump
-// statische Mondtextur für Mesh/Emissive/Bump
-const moonTexture = new THREE.TextureLoader().load('/textures/moon.png'); // static moon texture
+const moonTexture = new THREE.TextureLoader().load('/textures/moon.png');
 moonTexture.anisotropy = 8;
 if ('colorSpace' in moonTexture) moonTexture.colorSpace = THREE.SRGBColorSpace; else moonTexture.encoding = THREE.sRGBEncoding;
 moonTexture.wrapS = moonTexture.wrapT = THREE.ClampToEdgeWrapping;
 moonTexture.generateMipmaps = true;
 
-// einfacher Sternenhimmel als Points
-// einfacher Sternenhimmel als Points
-function makeStars() { // simple star field
+function makeStars() {
   const g = new THREE.BufferGeometry(), n = 700, positions = new Float32Array(n * 3), r = 2800;
   for (let i = 0; i < n; i++) {
     const u = Math.random(), v = Math.random(), th = 2 * Math.PI * u, ph = Math.acos(2 * v - 1);
@@ -37,8 +32,6 @@ function makeStars() { // simple star field
   return new THREE.Points(g, new THREE.PointsMaterial({ size: 2.0, sizeAttenuation: true, color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false }));
 }
 
-// Kugel-Mesh für den Mond (mit Emissive/Bump)
-// Kugel-Mesh für den Mond (mit Emissive/Bump)
 function makeMoonMesh() {
   const geo = new THREE.SphereGeometry(50, 64, 32);
   const mat = new THREE.MeshStandardMaterial({
@@ -59,8 +52,6 @@ function makeMoonMesh() {
   return mesh;
 }
 
-// Additiver Halo-Sprite um den Mond
-// Additiver Halo-Sprite um den Mond
 function makeMoonHalo() {
   const size = 512, c = document.createElement('canvas'); c.width = c.height = size;
   const ctx = c.getContext('2d'), g = ctx.createRadialGradient(size / 2, size / 2, size * 0.05, size / 2, size / 2, size * 0.5);
@@ -71,7 +62,6 @@ function makeMoonHalo() {
   const sprite = new THREE.Sprite(mat); sprite.scale.set(650, 650, 1); sprite.renderOrder = 0; return sprite;
 }
 
-// Sky-Shader um skyDarkness-Uniform erweitern
 function extendSkyMaterial(sky) {
   if (!sky?.material || sky.material.userData.__darknessExtended) return;
   const mat = sky.material, frag = mat.fragmentShader, uTok = 'uniform vec3 up;', cTok = 'gl_FragColor = vec4( retColor, 1.0 );';
@@ -80,7 +70,6 @@ function extendSkyMaterial(sky) {
   mat.uniforms.skyDarkness = { value: 1.0 }; mat.userData.__darknessExtended = true; mat.needsUpdate = true;
 }
 
-// Bahn-Parameter für Sonne/Mond
 const GEO = { latDeg: 19.4, declDeg: 0, R: 2600, moonPhaseOffsetDeg: 0, moonTiltDeltaDeg: -10 };
 
 function computeFromHours(hours) {
@@ -124,7 +113,6 @@ export function setTimeOfDay(hours) {
   if (!lights) return; state.hours = hours;
   const { sun, sunTarget, moon, moonMesh, moonHalo, moonTarget, hemi, starField, sky } = lights;
   const p = computeFromHours(hours);
-  setTorchNightMode(!p.isDay);
 
   sun.position.copy(p.sunPos); sun.color.copy(p.sunColor); sun.intensity = p.sunI; sunTarget.position.set(0, 0, 0); sun.target.updateMatrixWorld?.();
 
@@ -156,29 +144,3 @@ export const setTimeSpeed = v => { state.speed = v; };
 export function setDayNight(day) { setTimeOfDay(day ? 13.0 : 1.0); }
 export function attachTorchTo() {}
 export function showStars(on) { if (lights?.starField) lights.starField.visible = !!on; }
-export function updateSun(deltaSec=0){
-  if (!lights) return;
-  if (state.auto && deltaSec>0){
-    setTimeOfDay(state.hours + state.speed*deltaSec);
-  }
-  // Disks an Licht-Position koppeln (falls extern bewegt)
-  lights.moonDisk.position.copy(lights.moon.position);
-}
-
-export const isDaytime = ()=> {
-  const p = computeFromHours(state.hours);
-  return p.isDay;
-};
-export const getHours = ()=> state.hours;
-export const setTimeAuto = (on)=> { state.auto = !!on; };
-export const setTimeSpeed = (hoursPerSecond)=> { state.speed = hoursPerSecond; };
-
-// Legacy-API (keine Fackel mehr, nur Tag/Nacht togglen über Uhrzeit)
-export function setDayNight(day){
-  setTimeOfDay(day ? 13.0 : 1.0); // Tag ~13h, Nacht ~1h
-}
-
-// Sterne manuell toggeln (optional)
-export function showStars(on){
-  if (lights?.starField) lights.starField.visible = !!on;
-}
