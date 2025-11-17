@@ -124,6 +124,7 @@ export function setTimeOfDay(hours) {
   if (!lights) return; state.hours = hours;
   const { sun, sunTarget, moon, moonMesh, moonHalo, moonTarget, hemi, starField, sky } = lights;
   const p = computeFromHours(hours);
+  setTorchNightMode(!p.isDay);
 
   sun.position.copy(p.sunPos); sun.color.copy(p.sunColor); sun.intensity = p.sunI; sunTarget.position.set(0, 0, 0); sun.target.updateMatrixWorld?.();
 
@@ -155,3 +156,29 @@ export const setTimeSpeed = v => { state.speed = v; };
 export function setDayNight(day) { setTimeOfDay(day ? 13.0 : 1.0); }
 export function attachTorchTo() {}
 export function showStars(on) { if (lights?.starField) lights.starField.visible = !!on; }
+export function updateSun(deltaSec=0){
+  if (!lights) return;
+  if (state.auto && deltaSec>0){
+    setTimeOfDay(state.hours + state.speed*deltaSec);
+  }
+  // Disks an Licht-Position koppeln (falls extern bewegt)
+  lights.moonDisk.position.copy(lights.moon.position);
+}
+
+export const isDaytime = ()=> {
+  const p = computeFromHours(state.hours);
+  return p.isDay;
+};
+export const getHours = ()=> state.hours;
+export const setTimeAuto = (on)=> { state.auto = !!on; };
+export const setTimeSpeed = (hoursPerSecond)=> { state.speed = hoursPerSecond; };
+
+// Legacy-API (keine Fackel mehr, nur Tag/Nacht togglen über Uhrzeit)
+export function setDayNight(day){
+  setTimeOfDay(day ? 13.0 : 1.0); // Tag ~13h, Nacht ~1h
+}
+
+// Sterne manuell toggeln (optional)
+export function showStars(on){
+  if (lights?.starField) lights.starField.visible = !!on;
+}

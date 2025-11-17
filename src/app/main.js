@@ -191,6 +191,7 @@ loadGLB(scene, {
 });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 // Beispiel: Pyramide auf die Plaza stellen
 loadGLB(scene, {
@@ -202,6 +203,8 @@ loadGLB(scene, {
 
 
 =======
+=======
+>>>>>>> 190955f46c916bc472be09f061162ba29272bcbd
 loadGLB(scene, {
   url: '/models/Tempel.glb',
   position: { x: 0, y: 0, z: 0 },
@@ -223,4 +226,7 @@ loadGLB(scene, {
     registerPlaceableObject(model, 'Tempel2-main');
   }
 });
+<<<<<<< HEAD
+>>>>>>> 190955f46c916bc472be09f061162ba29272bcbd
+=======
 >>>>>>> 190955f46c916bc472be09f061162ba29272bcbd
