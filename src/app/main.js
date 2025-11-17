@@ -317,3 +317,14 @@ loadGLB(scene, {
         });
     }
 });
+
+loadGLB(scene,{
+    url: '/models/tenochtitlan_internet.glb',
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+    scale: 1.7,
+    hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+    onLoaded: (model) => {
+        registerPlaceableObject(model, 'TempelInternet');
+    }
+})
