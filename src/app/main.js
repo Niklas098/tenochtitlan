@@ -8,7 +8,6 @@ import {
   setDayNight,          // legacy toggle bleibt nutzbar (mappt auf Zeit)
   updateSun,
   isDaytime,
-  attachTorchTo,        // no-op, kann bleiben
   showStars,
   // 🔹 NEU: Zeitsteuerung (Orbit)
   setTimeOfDay,
@@ -18,8 +17,20 @@ import {
 } from '../util/lights.js';
 import { buildCity, updateCity, loadGLB } from '../scene/city/city.js';
 import createGUI from '../ui/gui.js';
+import {
+  initPlacer,
+  updatePlacer,
+  setPlacerEnabled,
+  setPlacerActiveCamera,
+  registerPlaceableObject
+} from '../ui/placer.js';
+import {
+  createTorchForCamera,
+  updateTorch
+} from '../scene/torch/torch.js';
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
+let placerActive = false;
 
 init();
 animate();
@@ -51,10 +62,20 @@ function init() {
   // Kleinere Map -> FP wirkt größer
   buildCity(scene, { groundSize: 2400 });
 
-  // 🔹 Fackel war entfernt – call ist jetzt No-Op, darf drin bleiben
-  attachTorchTo(cameras.fp.camera);
-
   gui = createGUI(renderer, cameras, lights);
+
+  createTorchForCamera(cameras.fp.camera, {
+    scene,
+    offset: { x: 0.38, y: -0.42, z: -0.78 },
+    rotation: { x: -0.33, y: 0.34, z: 0.06 },
+    intensity: 3.8
+  });
+
+  initPlacer({
+    scene,
+    domElement: renderer.domElement,
+    defaultEnabled: false
+  });
 
   // 🔹 START-Zeit statt setDayNight(): 13:00 = Tag
   setTimeOfDay(13.0);
@@ -85,6 +106,10 @@ function init() {
     }
     if (e.key === 'h' || e.key === 'H') {
       toggleHitboxVisibility();
+    }
+    if (e.code === 'KeyP') {
+      placerActive = !placerActive;
+      setPlacerEnabled(placerActive);
     }
 
     // 🔹 Komfort: Zeit manuell nudge’n (optional)
@@ -130,6 +155,10 @@ function animate() {
         : type === 'drone' ? cameras.drone.camera
         : cameras.fp.camera;
 
+  setPlacerActiveCamera(cam);
+  updatePlacer(dt);
+  updateTorch(dt);
+
   renderer.render(scene, cam);
 
   const mem = performance?.memory ? (performance.memory.usedJSHeapSize / (1024*1024)).toFixed(0) : '—';
@@ -156,5 +185,42 @@ loadGLB(scene, {
   position: { x: 0, y: 0, z: 0 },
   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
   scale: 0.02,
+  onLoaded: (model) => {
+    registerPlaceableObject(model, 'pyramide-main');
+  }
 });
 
+<<<<<<< HEAD
+
+// Beispiel: Pyramide auf die Plaza stellen
+loadGLB(scene, {
+  url: '/models/Tempel.glb',
+  position: { x: 120, y: 0, z: 0 },
+  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+  scale: 2,
+});
+
+
+=======
+loadGLB(scene, {
+  url: '/models/Tempel.glb',
+  position: { x: 0, y: 0, z: 0 },
+  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+  scale: 1.7,
+  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+  onLoaded: (model) => {
+    registerPlaceableObject(model, 'Tempel-main');
+  }
+});
+
+loadGLB(scene, {
+  url: '/models/Tempel.glb',
+  position: { x: 0, y: 0, z: 0 },
+  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+  scale: 1.7,
+  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+  onLoaded: (model) => {
+    registerPlaceableObject(model, 'Tempel2-main');
+  }
+});
+>>>>>>> 190955f46c916bc472be09f061162ba29272bcbd

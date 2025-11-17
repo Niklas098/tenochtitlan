@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { isInsideAnyHitbox, findSafeSpawnPosition } from './collision.js';
+import { setTorchEgoActive } from '../scene/torch/torch.js';
 
 let active = 'drone';
 let onCameraSwitch = null;
@@ -193,6 +194,8 @@ export function createCameras(renderer, canvas, options = {}) {
         }
     };
 
+    setTorchEgoActive(active === 'fp');
+
     return {
         orbit: { camera: orbitCam, controls: orbit, update: updateOrbit },
         drone: { camera: drone, update: updateDrone, resetHeight, _conf: conf },
@@ -205,5 +208,6 @@ export function switchToCamera(type) {
     const prev = active;
     active = type;
     if (onCameraSwitch) onCameraSwitch(prev, type);
+    setTorchEgoActive(active === 'fp');
 }
 export function getActiveCameraType() { return active; }
