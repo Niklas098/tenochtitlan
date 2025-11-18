@@ -28,6 +28,7 @@ import {
   createTorchForCamera,
   updateTorch
 } from '../scene/torch/torch.js';
+import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
 let placerActive = false;
@@ -159,6 +160,8 @@ function animate() {
   updatePlacer(dt);
   updateTorch(dt);
 
+  updateFireEmitters(dt, !isDaytime());
+
   renderer.render(scene, cam);
 
   const mem = performance?.memory ? (performance.memory.usedJSHeapSize / (1024*1024)).toFixed(0) : '—';
@@ -221,3 +224,107 @@ loadGLB(scene, {
     registerPlaceableObject(model, 'Tempel2-main');
   }
 });
+
+loadGLB(scene, {
+    url: '/models/Feuersockel.glb',
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+    scale: 1,
+    hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+    onLoaded: (model) => {
+        registerPlaceableObject(model, 'Feuersockel-01');
+
+        let fireMarker = null;
+        model.traverse((child) => {
+            if (child.name === 'FirePointStandingTorch') {
+                fireMarker = child;
+            }
+        });
+
+        if (!fireMarker) {
+            console.warn('Kein Fire-Empty im Sockel gefunden!');
+            return;
+        }
+
+        // Feuer-Emitter am Empty erstellen
+        createFireEmitter({
+            parent: fireMarker,
+            offset: { x: 0, y: 0, z: 0 }, // bei Bedarf minimal nachjustieren
+            intensity: 500,
+            radius: 500
+        });
+    }
+});
+
+loadGLB(scene,{
+   url: '/models/Feuersockel.glb',
+   position: { x: 0, y: 0, z: 0 },
+   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+   scale: 1,
+   hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+   onLoaded: (model) => {
+       registerPlaceableObject(model, 'Feuersockel-02');
+
+       let fireMarker = null;
+       model.traverse((child) => {
+           if (child.name === 'FirePointStandingTorch') {
+               fireMarker = child;
+           }
+       });
+
+       if (!fireMarker) {
+           console.warn('Kein Fire-Empty im Sockel gefunden!');
+           return;
+       }
+
+       // Feuer-Emitter am Empty erstellen
+       createFireEmitter({
+           parent: fireMarker,
+           offset: { x: 0, y: 0, z: 0 }, // bei Bedarf minimal nachjustieren
+           intensity: 500,
+           radius: 500
+       });
+   }
+});
+
+loadGLB(scene, {
+    url: '/models/TempelmitFeuer.glb',
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+    scale: 1.7,
+    hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+    onLoaded: (model) => {
+        registerPlaceableObject(model, 'TempelLinus');
+
+        let fireMarker = null;
+        model.traverse((child) => {
+            if (child.name === 'Leer') {
+                fireMarker = child;
+            }
+        });
+
+        if (!fireMarker) {
+            console.warn('Kein Fire-Empty im Sockel gefunden!');
+            return;
+        }
+
+        // Feuer-Emitter am Empty erstellen
+        createFireEmitter({
+            parent: fireMarker,
+            offset: { x: 0, y: 0, z: 0 }, // bei Bedarf minimal nachjustieren
+            intensity: 1000,
+            radius: 1000
+        });
+    }
+});
+
+loadGLB(scene,{
+    url: '/models/tenochtitlan_internet.glb',
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
+    scale: 1.7,
+    hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+    onLoaded: (model) => {
+        registerPlaceableObject(model, 'TempelInternet');
+    }
+})
