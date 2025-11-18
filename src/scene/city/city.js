@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createHitboxForGLB } from '../../util/collision.js';
+import { createWaterSurface } from '../water/water.js';
 
 // -----------------------------------------------------------------------------
 // Debug: optionaler Wireframe für geladene Modelle
@@ -132,7 +133,7 @@ function createHeightFromDiffuse(diffTex, repeat = 6) {
 // -----------------------------------------------------------------------------
 // eigentliche World-Build-Funktion
 // -----------------------------------------------------------------------------
-export function buildCity(scene, { groundSize = 2400 } = {}) {
+export function buildCity(scene, { groundSize = 2400, water = {} } = {}) {
   // 1. große Bodenfläche
   const seg = 256; // viele Segmente -> Displacement wirkt
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, seg, seg);
@@ -212,6 +213,45 @@ export function buildCity(scene, { groundSize = 2400 } = {}) {
       }
     }
   );
+
+  if (water !== false) {
+    const userWater = typeof water === 'object' && water !== null ? water : {};
+    const waterSize = groundSize * 6;
+    const waterOptions = {
+      scene,
+      size: waterSize,
+      height: 0.48,
+      segments: 96,
+      sunLight: null,
+      lakeRadius: groundSize * 0.42,
+      lakeFeather: groundSize * 0.3,
+      lakeNoise: groundSize * 0.42,
+      lakeInflow: groundSize * 0.2,
+      organicSettings: {
+        seed: 2.35,
+        outerRadius: waterSize * 0.65,
+        outerNoise: groundSize * 0.42,
+        outerRipple: groundSize * 0.12,
+        outerEccentricity: 0.12,
+        outerOffsetX: groundSize * 0.05,
+        outerOffsetY: -groundSize * 0.02,
+        innerRadius: groundSize * 0.34,
+        innerNoise: groundSize * 0.32,
+        innerBays: groundSize * 0.14,
+        shorelinePush: groundSize * 0.24,
+        shorelineFrequency: 1.25,
+        innerOffsetX: groundSize * 0.07,
+        innerOffsetY: -groundSize * 0.015,
+        clampOffset: 0.8
+      }
+    };
+    for (const [key, value] of Object.entries(userWater)) {
+      if (value !== undefined) {
+        waterOptions[key] = value;
+      }
+    }
+    createWaterSurface(waterOptions);
+  }
 
   // HIER könntest du jetzt optional deinen Tempel laden:
   // loadGLB(scene, { url: '/models/tempel.glb', scale: 1.0 });

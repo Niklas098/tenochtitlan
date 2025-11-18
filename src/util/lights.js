@@ -269,6 +269,10 @@ export const isDaytime = ()=> {
   return p.isDay;
 };
 export const getHours = ()=> state.hours;
+export const getDaylightFactor = () => {
+  const p = computeFromHours(state.hours);
+  return clamp01(p.sunI / 2.1);
+};
 export const setTimeAuto = (on)=> { state.auto = !!on; };
 export const setTimeSpeed = (hoursPerSecond)=> { state.speed = hoursPerSecond; };
 

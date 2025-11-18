@@ -13,7 +13,8 @@ import {
   setTimeOfDay,
   setTimeAuto,
   setTimeSpeed,
-  getHours
+  getHours,
+  getDaylightFactor
 } from '../util/lights.js';
 import { buildCity, updateCity, loadGLB } from '../scene/city/city.js';
 import createGUI from '../ui/gui.js';
@@ -28,6 +29,10 @@ import {
   createTorchForCamera,
   updateTorch
 } from '../scene/torch/torch.js';
+import {
+  updateWater,
+  setWaterTimeOfDayFactor
+} from '../scene/water/water.js';
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
 let placerActive = false;
@@ -60,7 +65,13 @@ function init() {
   lights = createLights(scene);
 
   // Kleinere Map -> FP wirkt größer
-  buildCity(scene, { groundSize: 2400 });
+  buildCity(scene, {
+    groundSize: 2400,
+    water: {
+      sunLight: lights.sun,
+      reflectionIgnore: lights.starField
+    }
+  });
 
   gui = createGUI(renderer, cameras, lights);
 
@@ -158,6 +169,8 @@ function animate() {
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
   updateTorch(dt);
+  setWaterTimeOfDayFactor(getDaylightFactor());
+  updateWater(dt, cam);
 
   renderer.render(scene, cam);
 
@@ -209,5 +222,27 @@ loadGLB(scene, {
   hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
   onLoaded: (model) => {
     registerPlaceableObject(model, 'Tempel2-main');
+  }
+});
+
+loadGLB(scene, {
+  url: '/models/Kirche.glb',
+  position: { x: 0, y: 0, z: 0 },
+  rotation: { x: 0, y: Math.PI * 0, z: 0 },
+  scale: 27,
+  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+  onLoaded: (model) => {
+    registerPlaceableObject(model, 'Kirche-main');
+  }
+});
+
+loadGLB(scene, {
+  url: '/models/LinusTempel.glb',
+  position: { x: 0, y: 0, z: 0 },
+  rotation: { x: 0, y: Math.PI * 0, z: 0 },
+  scale: 25,
+  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
+  onLoaded: (model) => {
+    registerPlaceableObject(model, 'LinusTempel-main');
   }
 });
