@@ -406,16 +406,93 @@ const placements = [
   },
   {
     name: 'walllong-07',
-    url: '/models/walllong.glb',
+    url: '/models/walllongentrance.glb',
     position: { x: 12, y: 0, z: -7.2 },
     rotation: { x: 0, y: -0.25, z: 0 },
     scale: 1
   },
   {
     name: 'walllong-08',
-    url: '/models/walllong.glb',
+    url: '/models/walllongentrance.glb',
     position: { x: 12, y: 0, z: -7.2 },
     rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  },
+  {
+    name: 'cypress-01',
+    url: '/models/cypress.glb',
+    position: { x: -43.299045433618986, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-02',
+    url: '/models/cypress.glb',
+    position: { x: -23.299045433618986, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-03',
+    url: '/models/cypress.glb',
+    position: { x: -3.299045433618986, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-04',
+    url: '/models/cypress.glb',
+    position: { x: 16.700954566381014, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-05',
+    url: '/models/cypress.glb',
+    position: { x: 36.700954566381014, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-06',
+    url: '/models/cypress.glb',
+    position: { x: 56.700954566381014, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-07',
+    url: '/models/cypress.glb',
+    position: { x: 76.70095456638101, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-08',
+    url: '/models/cypress.glb',
+    position: { x: 96.70095456638101, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-09',
+    url: '/models/cypress.glb',
+    position: { x: 116.70095456638101, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'cypress-10',
+    url: '/models/cypress.glb',
+    position: { x: 136.700954566381, y: 0, z: 12.72533647339433 },
+    rotation: { x: 0, y: 0.3, z: 0 },
+    scale: 0.7
+  },
+  {
+    name: 'supercar-01',
+    url: '/models/supercar.glb',
+    position: { x: 50, y: 0, z: -30 },
+    rotation: { x: 0, y: Math.PI / 2, z: 0 },
     scale: 1
   }
 ];
