@@ -22,27 +22,6 @@ function addWireframeHelperForGeometry(scene, geometry, opacity = 0.18, color = 
 }
 
 // -----------------------------------------------------------------------------
-// Fallback texture
-// -----------------------------------------------------------------------------
-function makeFallbackSandTexture(size = 512) {
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#d4c7b3';
-  ctx.fillRect(0, 0, size, size);
-  ctx.fillStyle = '#b39a7d';
-  for (let i = 0; i < 1200; i++) {
-    const x = Math.random() * size;
-    const y = Math.random() * size;
-    ctx.fillRect(x, y, 1, 1);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(6, 6);
-  return tex;
-}
-
-// -----------------------------------------------------------------------------
 // Micro–displacement ground noise (fine noise)
 // -----------------------------------------------------------------------------
 function displaceGroundGeometry(geo, amount = 0.12, scale = 0.0035) {
@@ -161,61 +140,11 @@ function flattenInnerPlateau(geo, size, options = {}) {
 }
 
 // -----------------------------------------------------------------------------
-// NORMALMAP aus DISPLACEMENT
-// -----------------------------------------------------------------------------
-function createNormalFromHeightTex(heightTex, strength = 1.0, repeat = 6) {
-  if (!heightTex.image) return null;
-
-  const img = heightTex.image;
-  const w = img.width, h = img.height;
-
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  const src = ctx.getImageData(0, 0, w, h);
-  const dst = ctx.createImageData(w, h);
-
-  const getH = (x, y) => {
-    x = Math.max(0, Math.min(w - 1, x));
-    y = Math.max(0, Math.min(h - 1, y));
-    return src.data[(y * w + x) * 4] / 255;
-  };
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const hL = getH(x - 1, y), hR = getH(x + 1, y);
-      const hD = getH(x, y - 1), hU = getH(x, y + 1);
-
-      const dx = (hL - hR) * strength;
-      const dy = (hD - hU) * strength;
-      const dz = 1;
-
-      let nx = -dx, ny = -dy, nz = dz;
-      const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-      nx /= len; ny /= len; nz /= len;
-
-      const i = (y * w + x) * 4;
-      dst.data[i] = (nx * 0.5 + 0.5) * 255;
-      dst.data[i+1] = (ny * 0.5 + 0.5) * 255;
-      dst.data[i+2] = (nz * 0.5 + 0.5) * 255;
-      dst.data[i+3] = 255;
-    }
-  }
-
-  ctx.putImageData(dst, 0, 0);
-
-  const normalTex = new THREE.CanvasTexture(c);
-  normalTex.wrapS = normalTex.wrapT = THREE.RepeatWrapping;
-  normalTex.repeat.set(repeat, repeat);
-  return normalTex;
-}
-
-// -----------------------------------------------------------------------------
 // Build world
 // -----------------------------------------------------------------------------
 export function buildCity(scene, {
   groundSize = 5200,   // ← deutlich größere Bodenplatte
+  groundRepeat = 500,
   water = {}
 } = {}) {
 
@@ -312,51 +241,26 @@ export function buildCity(scene, {
     height: 0
   });
 
+  const textureLoader = new THREE.TextureLoader();
+  const base = '/textures/ground/sandy_gravel_02_';
+
+  const wrapAndRepeat = (tex, { srgb = false } = {}) => {
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(groundRepeat, groundRepeat);
+    tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    return tex;
+  };
+
+  const colorMap = wrapAndRepeat(textureLoader.load(`${base}diff_2k.jpg`), { srgb: true });
   const groundMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    roughness: 0.92,
-    metalness: 0.0,
-    map: makeFallbackSandTexture()
+    map: colorMap,
+    roughness: 1.0,
+    metalness: 0.0
   });
 
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.receiveShadow = true;
   scene.add(ground);
-
-  // textures
-  const base = '/textures/coast_sand_01/';
-  const repeat = 160;
-
-  new THREE.TextureLoader().load(
-    base + 'coast_sand_01_diff_4k.jpg',
-    (tx) => {
-      tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
-      tx.repeat.set(repeat, repeat);
-      tx.colorSpace = THREE.SRGBColorSpace;
-      groundMat.map = tx;
-      groundMat.needsUpdate = true;
-    }
-  );
-
-  new THREE.TextureLoader().load(
-    base + 'coast_sand_01_disp_4k.png',
-    (tx) => {
-      tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
-      tx.repeat.set(repeat, repeat);
-      tx.colorSpace = THREE.NoColorSpace;
-
-      groundMat.displacementMap = tx;
-      groundMat.displacementScale = 0.4;
-
-      const n = createNormalFromHeightTex(tx, 2.4, repeat);
-      if (n) {
-        groundMat.normalMap = n;
-        groundMat.normalScale = new THREE.Vector2(1, 1);
-      }
-
-      groundMat.needsUpdate = true;
-    }
-  );
 
   if (waterOptions) createWaterSurface(waterOptions);
 }
