@@ -236,18 +236,18 @@ function setupGUI() {
     resetRot: () => resetSelectionRotation(),
     resetHeight: () => resetSelectionHeight(),
     resetAll: () => resetSelectionDefaults(),
+    cloneRow: () => cloneSelectionRow(),
     exportLayout: () => exportLayoutToClipboard(),
     importLayout: () => importLayoutFromPrompt(),
-    reloadLayout: () => reloadLayoutFromServer(),
-    resetLayout: () => clearPersistedTransforms()
+    reloadLayout: () => reloadLayoutFromServer()
   };
   actionsFolder.add(actions, 'resetRot').name('Rotation → Default');
   actionsFolder.add(actions, 'resetHeight').name('Höhe → Default');
   actionsFolder.add(actions, 'resetAll').name('Alles → Default');
+  actionsFolder.add(actions, 'cloneRow').name('Reihe duplizieren');
   actionsFolder.add(actions, 'exportLayout').name('Layout kopieren');
   actionsFolder.add(actions, 'importLayout').name('Layout einfügen');
   actionsFolder.add(actions, 'reloadLayout').name('Layout vom Server laden');
-  actionsFolder.add(actions, 'resetLayout').name('Server-Layout zurücksetzen');
   actionsFolder.close();
 }
 
@@ -453,6 +453,36 @@ function resetSelectionDefaults() {
   if (!sel?.userData?.placerDefault) return;
   applyTransformData(sel, sel.userData.placerDefault);
   markSelectionChanged();
+}
+
+function cloneSelectionRow() {
+  if (!state.selection || !state.scene || typeof window === 'undefined') return;
+  const count = parseInt(window.prompt('Wie viele zusätzliche Segmente?', '5') || '0', 10);
+  if (!Number.isFinite(count) || count <= 0) return;
+  const spacing = parseFloat(window.prompt('Abstand zwischen Segmenten (Einheiten)', '6') || '0');
+  if (!Number.isFinite(spacing) || spacing === 0) return;
+
+  const base = state.selection;
+  const forward = new THREE.Vector3();
+  base.getWorldDirection(forward);
+  forward.y = 0;
+  if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+  forward.normalize();
+
+  const start = base.position.clone();
+
+  for (let i = 1; i <= count; i++) {
+    const clone = base.clone(true);
+    clone.position.copy(start).addScaledVector(forward, spacing * i);
+    // frische userData, damit Ids/Defaults nicht geteilt werden
+    clone.userData = { ...base.userData };
+    delete clone.userData.placerDefault;
+    delete clone.userData.placerId;
+    const newId = `${base.userData?.placerId || base.name || 'placeable'}-${THREE.MathUtils.generateUUID()}`;
+    state.scene.add(clone);
+    registerPlaceableObject(clone, newId);
+    persistTransform(clone); // sofort ins Persisted-Layout übernehmen
+  }
 }
 
 function applyKeyboardMovement(delta) {

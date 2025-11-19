@@ -149,8 +149,9 @@ export function createCameras(renderer, canvas, options = {}) {
 
         // horizontale Bewegung
         const dir = new THREE.Vector3();
-        if (kfp.w) dir.z -= 1;
-        if (kfp.s) dir.z += 1;
+        // W/S waren vertauscht → nun korrekt
+        if (kfp.w) dir.z += 1;
+        if (kfp.s) dir.z -= 1;
         if (kfp.a) dir.x -= 1;
         if (kfp.d) dir.x += 1;
         dir.normalize();

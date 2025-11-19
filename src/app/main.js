@@ -182,49 +182,6 @@ function onResize() {
   }
 }
 
-// Beispiel: Pyramide auf die Plaza stellen
-loadGLB(scene, {
-  url: '/models/pyramide.glb',
-  position: { x: 0, y: 0, z: 0 },
-  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-  scale: 0.02,
-  onLoaded: (model) => {
-    registerPlaceableObject(model, 'pyramide-main');
-  }
-});
-
-
-// Beispiel: Pyramide auf die Plaza stellen
-loadGLB(scene, {
-  url: '/models/Tempel.glb',
-  position: { x: 120, y: 0, z: 0 },
-  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-  scale: 2,
-});
-
-
-loadGLB(scene, {
-  url: '/models/Tempel.glb',
-  position: { x: 0, y: 0, z: 0 },
-  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-  scale: 1.7,
-  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
-  onLoaded: (model) => {
-    registerPlaceableObject(model, 'Tempel-main');
-  }
-});
-
-loadGLB(scene, {
-  url: '/models/Tempel.glb',
-  position: { x: 0, y: 0, z: 0 },
-  rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-  scale: 1.7,
-  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
-  onLoaded: (model) => {
-    registerPlaceableObject(model, 'Tempel2-main');
-  }
-});
-
 loadGLB(scene, {
     url: '/models/Feuersockel.glb',
     position: { x: 0, y: 0, z: 0 },
@@ -318,13 +275,158 @@ loadGLB(scene, {
     }
 });
 
-loadGLB(scene,{
-    url: '/models/tenochtitlan_internet.glb',
+// Platzierbare Modelle kompakt im Array (leichter Offset für den Placer)
+const placerSpacing = 12;
+const placements = [
+  {
+    name: 'pyramide-01',
+    url: '/models/pyramide.glb',
     position: { x: 0, y: 0, z: 0 },
-    rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-    scale: 1.7,
-    hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
-    onLoaded: (model) => {
-        registerPlaceableObject(model, 'TempelInternet');
-    }
-})
+    rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
+    scale: 50
+  },
+  {
+    name: 'tempelgr-01',
+    url: '/models/Tempelgr.glb',
+    position: { x: placerSpacing, y: 0, z: 2 },
+    rotation: { x: 0, y: Math.PI * 0.3, z: 0 },
+    scale: 60
+  },
+  {
+    name: 'tempelgr-02',
+    url: '/models/Tempelgr.glb',
+    position: { x: -placerSpacing - 2, y: 0, z: placerSpacing * 0.7 },
+    rotation: { x: 0, y: -Math.PI * 0.25, z: 0 },
+    scale: 60
+  },
+  {
+    name: 'tempelkl-01',
+    url: '/models/Tempelkl.glb',
+    position: { x: 4, y: 0, z: placerSpacing + 2 },
+    rotation: { x: 0, y: 0.1, z: 0 },
+    scale: 3
+  },
+  {
+    name: 'tempelkl-02',
+    url: '/models/Tempelkl.glb',
+    position: { x: placerSpacing + 4, y: 0, z: placerSpacing + 4 },
+    rotation: { x: 0, y: -0.18, z: 0 },
+    scale: 3
+  },
+  {
+    name: 'tempelkl-03',
+    url: '/models/Tempelkl.glb',
+    position: { x: -placerSpacing + 2, y: 0, z: placerSpacing * 1.3 },
+    rotation: { x: 0, y: 0.22, z: 0 },
+    scale: 3
+  },
+  {
+    name: 'tempelkl-04',
+    url: '/models/Tempelkl.glb',
+    position: { x: placerSpacing * 1.6, y: 0, z: placerSpacing * 1.5 },
+    rotation: { x: 0, y: -0.12, z: 0 },
+    scale: 3
+  },
+  {
+    name: 'kirche-01',
+    url: '/models/Kirche.glb',
+    position: { x: -4, y: 0, z: placerSpacing * 2 },
+    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
+    scale: 10
+  },
+  {
+    name: 'tempelgrex-01',
+    url: '/models/Tempelgrex.glb',
+    position: { x: -4, y: 0, z: placerSpacing * 2 },
+    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
+    scale: 10
+  },
+  {
+    name: 'tempelgrex-02',
+    url: '/models/Tempelgrex.glb',
+    position: { x: -4, y: 0, z: placerSpacing * 2 },
+    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
+    scale: 10
+  },
+  {
+    name: 'tempelgrex-03',
+    url: '/models/Tempelgrex.glb',
+    position: { x: -4, y: 0, z: placerSpacing * 2 },
+    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
+    scale: 10
+  },
+  {
+    name: 'tempelgrex-04',
+    url: '/models/Tempelgrex.glb',
+    position: { x: -4, y: 0, z: placerSpacing * 2 },
+    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
+    scale: 10
+  },
+  {
+    name: 'walllong-01',
+    url: '/models/walllong.glb',
+    position: { x: 12, y: 0, z: -7.2 },
+    rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  },
+   {
+    name: 'walllong-02',
+    url: '/models/walllong.glb',
+    position: { x: 12, y: 0, z: -7.2 },
+    rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  },
+  {
+    name: 'walllong-03',
+    url: '/models/walllong.glb',
+    position: { x: 12, y: 0, z: -7.2 },
+    rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  },
+  {
+    name: 'walllong-04',
+    url: '/models/walllong.glb',
+    position: { x: 12, y: 0, z: -7.2 },
+    rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  },
+  {
+    name: 'walllong-05',
+    url: '/models/walllong.glb',
+    position: { x: 12, y: 0, z: -7.2 },
+    rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  },
+  {
+    name: 'walllong-06',
+    url: '/models/walllong.glb',
+    position: { x: 12, y: 0, z: -7.2 },
+    rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  },
+  {
+    name: 'walllong-07',
+    url: '/models/walllong.glb',
+    position: { x: 12, y: 0, z: -7.2 },
+    rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  },
+  {
+    name: 'walllong-08',
+    url: '/models/walllong.glb',
+    position: { x: 12, y: 0, z: -7.2 },
+    rotation: { x: 0, y: -0.25, z: 0 },
+    scale: 1
+  }
+];
+
+placements.forEach(({ url, name, position, rotation, scale, hitboxOptions }) => {
+  loadGLB(scene, {
+    url,
+    position,
+    rotation,
+    scale,
+    hitboxOptions,
+    onLoaded: (model) => registerPlaceableObject(model, name)
+  });
+});
