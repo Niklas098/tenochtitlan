@@ -521,24 +521,6 @@ placements.forEach(({ url, name, position, rotation, scale, hitboxOptions }) => 
   });
 });
 
-loadGLB(scene, {
-  url: '/models/Kirche.glb',
-  position: { x: 0, y: 0, z: 0 },
-  rotation: { x: 0, y: Math.PI * 0, z: 0 },
-  scale: 27,
-  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
-  onLoaded: (model) => {
-    registerPlaceableObject(model, 'Kirche-main');
-  }
-});
 
-loadGLB(scene, {
-  url: '/models/LinusTempel.glb',
-  position: { x: 0, y: 0, z: 0 },
-  rotation: { x: 0, y: Math.PI * 0, z: 0 },
-  scale: 25,
-  hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
-  onLoaded: (model) => {
-    registerPlaceableObject(model, 'LinusTempel-main');
-  }
-});
+
+

@@ -3,7 +3,8 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { setTorchNightMode } from '../scene/torch/torch.js';
 
 let lights = null;
-let state = { hours: 13.0, auto: false, speed: 0.25 };
+let state = { hours: 13.0, auto: false, speed: 0.25, daylightFactor: 1.0 };
+const SUN_DEFAULT_INTENSITY = 2.1;
 
 const clamp01 = x => Math.max(0, Math.min(1, x));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -83,7 +84,7 @@ function computeFromHours(hours) {
   const xM = R * Math.cos(thetaM), yM = R * Math.sin(thetaM) * Math.sin(iMoon), zM = R * Math.sin(thetaM) * Math.cos(iMoon);
   const elevSin = Math.sin(theta) * Math.sin(iSun), elevNorm = clamp01((elevSin + 1) / 2), isDay = elevSin > 0;
   const sunColor = kelvinToRGB(isDay ? lerp(2200, 6500, Math.pow(elevNorm, 0.65)) : 2200), moonColor = new THREE.Color(0xcfe4ff);
-  const sunI = isDay ? Math.pow(elevNorm, 1.25) * 2.1 : 0, hemiI = isDay ? lerp(0.12, 0.40, Math.pow(elevNorm, 0.7)) : 0.06;
+  const sunI = isDay ? Math.pow(elevNorm, 1.25) * SUN_DEFAULT_INTENSITY : 0, hemiI = isDay ? lerp(0.12, 0.40, Math.pow(elevNorm, 0.7)) : 0.06;
   const moonHeight = clamp01((yM / R + 1) / 2), nightBlend = clamp01(1.0 - Math.pow(elevNorm, 1.25));
   const moonI = nightBlend > 0 ? nightBlend * lerp(0.1, 0.21, Math.pow(moonHeight, 0.9)) : 0;
   return { sunPos: new THREE.Vector3(xS, yS, zS), moonPos: new THREE.Vector3(xM, yM, zM), sunColor, moonColor, sunI, moonI, hemiI, isDay, moonGlow: moonHeight * nightBlend };
@@ -91,7 +92,7 @@ function computeFromHours(hours) {
 
 export function createLights(scene) {
   const group = new THREE.Group(), hemi = new THREE.HemisphereLight(0xeadfcd, 0x1d2830, 0.38); group.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+  const sun = new THREE.DirectionalLight(0xffffff, SUN_DEFAULT_INTENSITY);
   sun.position.set(-2000, 360, -500); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 6000; sun.shadow.camera.left = -2500; sun.shadow.camera.right = 2500; sun.shadow.camera.top = 1800; sun.shadow.camera.bottom = -1800;
   const sunTarget = new THREE.Object3D(); group.add(sunTarget); sun.target = sunTarget; group.add(sun);
@@ -111,9 +112,11 @@ export function createLights(scene) {
 }
 
 export function setTimeOfDay(hours) {
-  if (!lights) return; state.hours = hours;
-  const { sun, sunTarget, moon, moonMesh, moonHalo, moonTarget, hemi, starField, sky } = lights;
+  state.hours = hours;
   const p = computeFromHours(hours);
+  state.daylightFactor = clamp01(p.sunI / SUN_DEFAULT_INTENSITY);
+  if (!lights) return;
+  const { sun, sunTarget, moon, moonMesh, moonHalo, moonTarget, hemi, starField, sky } = lights;
   setTorchNightMode(!p.isDay);
 
   sun.position.copy(p.sunPos); sun.color.copy(p.sunColor); sun.intensity = p.sunI; sunTarget.position.set(0, 0, 0); sun.target.updateMatrixWorld?.();
@@ -141,6 +144,7 @@ export function setTimeOfDay(hours) {
 export function updateSun(deltaSec = 0) { if (!lights) return; if (state.auto && deltaSec > 0) setTimeOfDay(state.hours + state.speed * deltaSec); lights.moonMesh?.position.copy(lights.moon.position); lights.moonHalo?.position.copy(lights.moon.position); }
 export const isDaytime = () => computeFromHours(state.hours).isDay;
 export const getHours = () => state.hours;
+export const getDaylightFactor = () => state.daylightFactor ?? 0;
 export const setTimeAuto = on => { state.auto = !!on; };
 export const setTimeSpeed = v => { state.speed = v; };
 export function setDayNight(day) { setTimeOfDay(day ? 13.0 : 1.0); }
