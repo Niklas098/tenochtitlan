@@ -30,12 +30,13 @@ import {
   updateTorch
 } from '../scene/torch/torch.js';
 import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
-import {
-  updateWater,
-  setWaterTimeOfDayFactor
-} from '../scene/water/water.js';
+import { createWater } from '../scene/water/water2.js';
 
-let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
+const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
+const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
+const WATER_COLOR = new THREE.Color();
+
+let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterSurface;
 let placerActive = false;
 
 init();
@@ -72,6 +73,17 @@ function init() {
       sunLight: lights.sun,
       reflectionIgnore: lights.starField
     }
+  });
+
+  waterSurface = createWater(scene, {
+    size: 10000,
+    height: -100,
+    textureRepeat: 4,
+    color: 0x1c2f3f,
+    reflectivity: 0.28,
+    waveScale: 3.2,
+    flowDirection: new THREE.Vector2(-0.2, 0.08),
+    flowSpeed: 0.006
   });
 
   gui = createGUI(renderer, cameras, lights);
@@ -170,8 +182,13 @@ function animate() {
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
   updateTorch(dt);
-  setWaterTimeOfDayFactor(getDaylightFactor());
-  updateWater(dt, cam);
+  if (waterSurface) {
+    const daylight = getDaylightFactor();
+    WATER_COLOR.copy(WATER_NIGHT_COLOR).lerp(WATER_DAY_COLOR, daylight);
+    waterSurface.material.uniforms.color.value.copy(WATER_COLOR);
+    waterSurface.material.uniforms.reflectivity.value = THREE.MathUtils.lerp(0.28, 0.7, daylight);
+    waterSurface.material.uniforms.config.value.w = THREE.MathUtils.lerp(2.8, 4.0, daylight);
+  }
 
   updateFireEmitters(dt, !isDaytime());
 
@@ -520,7 +537,3 @@ placements.forEach(({ url, name, position, rotation, scale, hitboxOptions }) => 
     onLoaded: (model) => registerPlaceableObject(model, name)
   });
 });
-
-
-
-

@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createHitboxForGLB } from '../../util/collision.js';
 import {
-  createWaterSurface,
   createShoreHeatSampler,
   sculptGroundWithShoreHeatmap
 } from '../water/water.js';
@@ -358,7 +357,7 @@ export function buildCity(scene, {
     }
   );
 
-  if (waterOptions) createWaterSurface(waterOptions);
+  // Water surface is now created via the dedicated Water2 module (see src/scene/water/water2.js).
 }
 
 // -----------------------------------------------------------------------------
