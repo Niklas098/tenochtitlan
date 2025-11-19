@@ -1,3 +1,4 @@
 node_modules/
-public/
-
+public/models/
+public/textures/
+/dist/
