@@ -2,10 +2,16 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createHitboxForGLB } from '../../util/collision.js';
-import { createWaterSurface } from '../water/water.js';
+import {
+  createWaterSurface,
+  createShoreHeatSampler,
+  sculptGroundWithShoreHeatmap
+} from '../water/water.js';
+
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 // -----------------------------------------------------------------------------
-// Debug: optionaler Wireframe für geladene Modelle
+// Wireframe Debug
 // -----------------------------------------------------------------------------
 function addWireframeHelperForGeometry(scene, geometry, opacity = 0.18, color = 0x00ffff) {
   const wireGeo = new THREE.WireframeGeometry(geometry);
@@ -16,7 +22,7 @@ function addWireframeHelperForGeometry(scene, geometry, opacity = 0.18, color = 
 }
 
 // -----------------------------------------------------------------------------
-// Fallback-Textur, falls deine echte JPG nicht gefunden wird
+// Fallback texture
 // -----------------------------------------------------------------------------
 function makeFallbackSandTexture(size = 512) {
   const c = document.createElement('canvas');
@@ -37,7 +43,7 @@ function makeFallbackSandTexture(size = 512) {
 }
 
 // -----------------------------------------------------------------------------
-// Boden-Geometrie ein bisschen „hubbelig“ machen
+// Micro–displacement ground noise (fine noise)
 // -----------------------------------------------------------------------------
 function displaceGroundGeometry(geo, amount = 0.12, scale = 0.0035) {
   const pos = geo.attributes.position;
@@ -53,18 +59,118 @@ function displaceGroundGeometry(geo, amount = 0.12, scale = 0.0035) {
 }
 
 // -----------------------------------------------------------------------------
-// aus einer Height-/Displacement-Textur eine Normalmap basteln (reines JS)
+// MAIN TALFORM FIX – smooth & natural falloff (no steps, no rings)
+// -----------------------------------------------------------------------------
+function sculptGroundBasin(geo, size, options = {}) {
+  if (!geo?.attributes?.position) return;
+
+  const {
+    plateauRadius = 0.63,
+    dropRadius = 1.1,
+    edgeDrop = 140,
+    slopeExponent = 1.15,
+    noiseAmplitude = 0.5,
+    noiseFrequency = 0.002,
+    angularNoiseAmplitude = 0.12,
+    angularNoiseFrequency = 3.5,
+    ridgeNoiseAmplitude = 0.1,
+    ridgeNoiseFrequency = 4.5,
+    seed = 2.6
+  } = options;
+
+  const pos = geo.attributes.position;
+  const halfSize = size * 0.5;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const baseY = pos.getY(i); // original height
+    const angle = Math.atan2(z, x);
+    const radius = Math.sqrt(x * x + z * z);
+
+    // coastal irregularity
+    const angularNoise =
+      Math.sin(angle * angularNoiseFrequency + seed * 0.73) *
+        angularNoiseAmplitude * halfSize +
+      Math.cos(angle * (angularNoiseFrequency * 0.7) - seed * 1.1) *
+        angularNoiseAmplitude * 0.8 * halfSize;
+
+    const plateauLocal = plateauRadius * halfSize + angularNoise * 0.35;
+    const dropLocal = dropRadius * halfSize + angularNoise;
+
+    // inside plateau = keep original smooth inner height
+    if (radius <= plateauLocal) continue;
+
+    // smooth falloff between plateau → drop zone
+    const falloff = clamp01((radius - plateauLocal) / Math.max(1e-5, dropLocal - plateauLocal));
+    const smoothFalloff = falloff * falloff * (3 - 2 * falloff);
+    const slope = Math.pow(smoothFalloff, slopeExponent);
+
+    const drop = edgeDrop * slope;
+
+    const baseNoiseVal =
+      (Math.sin((x + z) * noiseFrequency + seed * 0.5) +
+        Math.cos((x - z) * noiseFrequency * 1.37 - seed * 0.82) * 0.5) *
+      noiseAmplitude * slope;
+
+    const ridge =
+      Math.sin(angle * ridgeNoiseFrequency + seed * 1.3) *
+      ridgeNoiseAmplitude *
+      (1.0 - smoothFalloff) *
+      10.0;
+
+    // softer: relative downward shift (NO ABSOLUTE Y)
+    pos.setY(i, baseY - drop - baseNoiseVal - ridge);
+  }
+
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+}
+
+// -----------------------------------------------------------------------------
+// flatten center area (only very mild smoothing)
+// -----------------------------------------------------------------------------
+function flattenInnerPlateau(geo, size, options = {}) {
+  const { radius = 0.58, blend = 0.12, height = 0 } = options;
+  const pos = geo.attributes.position;
+  const halfSize = size * 0.5;
+  const flatRadius = radius * halfSize;
+  const blendDist = Math.max(1e-5, blend * halfSize);
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const r = Math.sqrt(x * x + z * z);
+
+    if (r <= flatRadius) {
+      pos.setY(i, height);
+      continue;
+    }
+
+    if (r < flatRadius + blendDist) {
+      const t = (r - flatRadius) / blendDist;
+      const smooth = t * t * (3 - 2 * t);
+      const old = pos.getY(i);
+      const blended = height + (old - height) * smooth;
+      pos.setY(i, blended);
+    }
+  }
+
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+}
+
+// -----------------------------------------------------------------------------
+// NORMALMAP aus DISPLACEMENT
 // -----------------------------------------------------------------------------
 function createNormalFromHeightTex(heightTex, strength = 1.0, repeat = 6) {
   if (!heightTex.image) return null;
 
   const img = heightTex.image;
-  const w = img.width;
-  const h = img.height;
+  const w = img.width, h = img.height;
 
   const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
+  c.width = w; c.height = h;
   const ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0);
   const src = ctx.getImageData(0, 0, w, h);
@@ -73,33 +179,27 @@ function createNormalFromHeightTex(heightTex, strength = 1.0, repeat = 6) {
   const getH = (x, y) => {
     x = Math.max(0, Math.min(w - 1, x));
     y = Math.max(0, Math.min(h - 1, y));
-    const i = (y * w + x) * 4;
-    return src.data[i] / 255.0;
+    return src.data[(y * w + x) * 4] / 255;
   };
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const hL = getH(x - 1, y);
-      const hR = getH(x + 1, y);
-      const hD = getH(x, y - 1);
-      const hU = getH(x, y + 1);
+      const hL = getH(x - 1, y), hR = getH(x + 1, y);
+      const hD = getH(x, y - 1), hU = getH(x, y + 1);
 
       const dx = (hL - hR) * strength;
       const dy = (hD - hU) * strength;
-      const dz = 1.0;
+      const dz = 1;
 
-      let nx = -dx;
-      let ny = -dy;
-      let nz = dz;
-
-      const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+      let nx = -dx, ny = -dy, nz = dz;
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
       nx /= len; ny /= len; nz /= len;
 
       const i = (y * w + x) * 4;
-      dst.data[i + 0] = (nx * 0.5 + 0.5) * 255;
-      dst.data[i + 1] = (ny * 0.5 + 0.5) * 255;
-      dst.data[i + 2] = (nz * 0.5 + 0.5) * 255;
-      dst.data[i + 3] = 255;
+      dst.data[i] = (nx * 0.5 + 0.5) * 255;
+      dst.data[i+1] = (ny * 0.5 + 0.5) * 255;
+      dst.data[i+2] = (nz * 0.5 + 0.5) * 255;
+      dst.data[i+3] = 255;
     }
   }
 
@@ -108,77 +208,136 @@ function createNormalFromHeightTex(heightTex, strength = 1.0, repeat = 6) {
   const normalTex = new THREE.CanvasTexture(c);
   normalTex.wrapS = normalTex.wrapT = THREE.RepeatWrapping;
   normalTex.repeat.set(repeat, repeat);
-  normalTex.colorSpace = THREE.NoColorSpace;
   return normalTex;
 }
 
 // -----------------------------------------------------------------------------
-// wenn disp fehlt, aber diff da ist: wenigstens eine Bump-Map erzeugen
+// Build world
 // -----------------------------------------------------------------------------
-function createHeightFromDiffuse(diffTex, repeat = 6) {
-  if (!diffTex || !diffTex.image) return null;
-  const img = diffTex.image;
-  const c = document.createElement('canvas');
-  c.width = img.width;
-  c.height = img.height;
-  const ctx = c.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(repeat, repeat);
-  tex.colorSpace = THREE.NoColorSpace;
-  return tex;
-}
+export function buildCity(scene, {
+  groundSize = 5200,   // ← deutlich größere Bodenplatte
+  water = {}
+} = {}) {
 
-// -----------------------------------------------------------------------------
-// eigentliche World-Build-Funktion
-// -----------------------------------------------------------------------------
-export function buildCity(scene, { groundSize = 2400, water = {} } = {}) {
-  // 1. große Bodenfläche
-  const seg = 256; // viele Segmente -> Displacement wirkt
+  // Wasser-Konfiguration
+  let shorelineSampler = null;
+  let waterOptions = null;
+
+  if (water !== false) {
+    const waterSize = groundSize * 6;
+
+    const organicDefault = {
+      seed: 4.1,
+      outerRadius: waterSize * 0.55,
+      outerNoise: groundSize * 0.38,
+      outerRipple: groundSize * 0.12,
+      outerEccentricity: 0.28,
+      outerOffsetX: groundSize * 0.12,
+      outerOffsetY: -groundSize * 0.05,
+      innerRadius: groundSize * 0.32,
+      innerNoise: groundSize * 0.25,
+      innerBays: groundSize * 0.22,
+      shorelinePush: groundSize * 0.34,
+      shorelineFrequency: 1.8,
+      innerOffsetX: groundSize * 0.11,
+      innerOffsetY: -groundSize * 0.03,
+      clampOffset: 1.2
+    };
+
+    waterOptions = {
+      scene,
+      size: waterSize,
+      height: -120,               // ← Wasser deutlich tiefer
+      segments: 96,
+      sunLight: null,
+      lakeRadius: groundSize * 0.42,
+      lakeFeather: groundSize * 0.35,
+      lakeNoise: groundSize * 0.55,
+      lakeInflow: groundSize * 0.26,
+      organicSettings: { ...organicDefault }
+    };
+
+    shorelineSampler = createShoreHeatSampler({
+      centerX: organicDefault.outerOffsetX,
+      centerZ: -organicDefault.outerOffsetY,
+      radius: waterOptions.lakeRadius,
+      feather: waterOptions.lakeFeather,
+      noise: waterOptions.lakeNoise,
+      inflow: waterOptions.lakeInflow,
+      clampRadius: waterOptions.size * 0.5 * organicDefault.clampOffset,
+      seed: organicDefault.seed
+    });
+
+    waterOptions.shoreSampler = shorelineSampler;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ground mesh
+  // ---------------------------------------------------------------------------
+  const seg = 256;
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, seg, seg);
   groundGeo.rotateX(-Math.PI / 2);
-  displaceGroundGeometry(groundGeo, 0.08, 0.0028);
 
-  // 2. Material mit Fallback
+  displaceGroundGeometry(groundGeo, 0.08, 0.003);   // micro noise
+  sculptGroundBasin(groundGeo, groundSize, {       // smooth natural bowl
+    plateauRadius: 0.7,
+    dropRadius: 0.96,
+    edgeDrop: 280,
+    slopeExponent: 1.28,
+    noiseAmplitude: 0.58,
+    noiseFrequency: 0.002,
+    angularNoiseAmplitude: 0.12,
+    angularNoiseFrequency: 4.3,
+    ridgeNoiseAmplitude: 0.2,
+    ridgeNoiseFrequency: 1.5,
+    seed: 2.6
+  });
+
+  // optional: natural coastline heatmap
+  if (shorelineSampler) {
+    sculptGroundWithShoreHeatmap(groundGeo, shorelineSampler, {
+      rimHeight: 18,
+      rimExponent: 1.0,
+      rimRipple: 0.42,
+      depth: 38,
+      depthExponent: 0.65,
+      underwaterShelf: 0.42
+    });
+  }
+
+  // flatten center for the city
+  flattenInnerPlateau(groundGeo, groundSize, {
+    radius: 0.58,
+    blend: 0.12,
+    height: 0
+  });
+
   const groundMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    roughness: 0.9,
+    roughness: 0.92,
     metalness: 0.0,
-    map: makeFallbackSandTexture(),
+    map: makeFallbackSandTexture()
   });
 
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.receiveShadow = true;
-  ground.castShadow = false;
   scene.add(ground);
 
-  // 3. DEINE echten Dateien
-  //    Lege sie hier hin:
-  //    public/textures/coast_sand_01/coast_sand_01_diff_4k.jpg
-  //    public/textures/coast_sand_01/coast_sand_01_disp_4k.png
+  // textures
   const base = '/textures/coast_sand_01/';
-  const repeat = 106; // dein Wert
-  let loadedDiffuse = null;
+  const repeat = 160;
 
-  // --- Diffuse ---
   new THREE.TextureLoader().load(
     base + 'coast_sand_01_diff_4k.jpg',
     (tx) => {
       tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
       tx.repeat.set(repeat, repeat);
       tx.colorSpace = THREE.SRGBColorSpace;
-      loadedDiffuse = tx;
       groundMat.map = tx;
       groundMat.needsUpdate = true;
-    },
-    undefined,
-    () => {
-      console.info('coast_sand_01_diff_4k.jpg nicht gefunden – Fallback bleibt.');
     }
   );
 
-  // --- Displacement + daraus Normal bauen ---
   new THREE.TextureLoader().load(
     base + 'coast_sand_01_disp_4k.png',
     (tx) => {
@@ -186,79 +345,24 @@ export function buildCity(scene, { groundSize = 2400, water = {} } = {}) {
       tx.repeat.set(repeat, repeat);
       tx.colorSpace = THREE.NoColorSpace;
 
-      // echtes Displacement
       groundMat.displacementMap = tx;
-      groundMat.displacementScale = 0.4; // Haptik
-      groundMat.displacementBias = 0.0;
+      groundMat.displacementScale = 0.4;
 
-      // zusätzliche Normalmap aus der displacement bauen
-      const normalFromDisp = createNormalFromHeightTex(tx, 2.5, repeat);
-      if (normalFromDisp) {
-        groundMat.normalMap = normalFromDisp;
+      const n = createNormalFromHeightTex(tx, 2.4, repeat);
+      if (n) {
+        groundMat.normalMap = n;
         groundMat.normalScale = new THREE.Vector2(1, 1);
       }
 
       groundMat.needsUpdate = true;
-    },
-    undefined,
-    () => {
-      // wenn disp fehlt: wenigstens Bump aus diff
-      if (loadedDiffuse) {
-        const bump = createHeightFromDiffuse(loadedDiffuse, repeat);
-        if (bump) {
-          groundMat.bumpMap = bump;
-          groundMat.bumpScale = 0.35;
-          groundMat.needsUpdate = true;
-        }
-      }
     }
   );
 
-  if (water !== false) {
-    const userWater = typeof water === 'object' && water !== null ? water : {};
-    const waterSize = groundSize * 6;
-    const waterOptions = {
-      scene,
-      size: waterSize,
-      height: 0.48,
-      segments: 96,
-      sunLight: null,
-      lakeRadius: groundSize * 0.42,
-      lakeFeather: groundSize * 0.3,
-      lakeNoise: groundSize * 0.42,
-      lakeInflow: groundSize * 0.2,
-      organicSettings: {
-        seed: 2.35,
-        outerRadius: waterSize * 0.65,
-        outerNoise: groundSize * 0.42,
-        outerRipple: groundSize * 0.12,
-        outerEccentricity: 0.12,
-        outerOffsetX: groundSize * 0.05,
-        outerOffsetY: -groundSize * 0.02,
-        innerRadius: groundSize * 0.34,
-        innerNoise: groundSize * 0.32,
-        innerBays: groundSize * 0.14,
-        shorelinePush: groundSize * 0.24,
-        shorelineFrequency: 1.25,
-        innerOffsetX: groundSize * 0.07,
-        innerOffsetY: -groundSize * 0.015,
-        clampOffset: 0.8
-      }
-    };
-    for (const [key, value] of Object.entries(userWater)) {
-      if (value !== undefined) {
-        waterOptions[key] = value;
-      }
-    }
-    createWaterSurface(waterOptions);
-  }
-
-  // HIER könntest du jetzt optional deinen Tempel laden:
-  // loadGLB(scene, { url: '/models/tempel.glb', scale: 1.0 });
+  if (waterOptions) createWaterSurface(waterOptions);
 }
 
 // -----------------------------------------------------------------------------
-// GLB laden (wie bei dir)
+// GLB Loading
 // -----------------------------------------------------------------------------
 export function loadGLB(
   scene,
@@ -276,46 +380,40 @@ export function loadGLB(
   } = {}
 ) {
   const loader = new GLTFLoader();
-  loader.load(
-    url,
-    (gltf) => {
-      const model = gltf.scene;
+  loader.load(url, (gltf) => {
+    const model = gltf.scene;
 
-      model.position.set(position.x, position.y, position.z);
-      model.rotation.set(rotation.x, rotation.y, rotation.z);
-      if (typeof scale === 'number') model.scale.setScalar(scale);
-      else model.scale.set(scale.x ?? 1, scale.y ?? 1, scale.z ?? 1);
+    model.position.set(position.x, position.y, position.z);
+    model.rotation.set(rotation.x, rotation.y, rotation.z);
+    if (typeof scale === 'number') model.scale.setScalar(scale);
+    else model.scale.set(scale.x ?? 1, scale.y ?? 1, scale.z ?? 1);
 
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = castShadow;
+        child.receiveShadow = receiveShadow;
+      }
+    });
+
+    scene.add(model);
+
+    // align bottom
+    let box = new THREE.Box3().setFromObject(model);
+    const dy = -box.min.y;
+    if (Math.abs(dy) > 1e-4) model.position.y += dy;
+    model.position.y -= lowerBy;
+
+    if (showWireframe) {
       model.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = castShadow;
-          child.receiveShadow = receiveShadow;
+        if (child.isMesh && child.geometry) {
+          addWireframeHelperForGeometry(scene, child.geometry, 0.2, 0xff8800);
         }
       });
-
-      scene.add(model);
-
-      // Unterkante auf y=0 ausrichten
-      let box = new THREE.Box3().setFromObject(model);
-      const dy = -box.min.y;
-      if (Math.abs(dy) > 1e-4) {
-        model.position.y += dy;
-      }
-      model.position.y -= lowerBy;
-
-      if (showWireframe) {
-        model.traverse((child) => {
-          if (child.isMesh && child.geometry) {
-            addWireframeHelperForGeometry(scene, child.geometry, 0.2, 0xff8800);
-          }
-        });
-      }
-
-      createHitboxForGLB(scene, model, hitboxOptions || undefined);
-
-      if (onLoaded) onLoaded(model, gltf);
     }
-  );
+
+    createHitboxForGLB(scene, model, hitboxOptions || undefined);
+    if (onLoaded) onLoaded(model, gltf);
+  });
 }
 
 export function updateCity() {}

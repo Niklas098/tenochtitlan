@@ -66,7 +66,7 @@ function init() {
 
   // Kleinere Map -> FP wirkt größer
   buildCity(scene, {
-    groundSize: 2400,
+    groundSize: 3000,
     water: {
       sunLight: lights.sun,
       reflectionIgnore: lights.starField
