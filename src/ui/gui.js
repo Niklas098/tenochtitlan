@@ -7,9 +7,11 @@ import {
   setDayNight, isDaytime, showStars
 } from '../util/lights.js';
 import { switchToCamera, getActiveCameraType } from '../util/cameras.js';
+import { WATER_QUALITY } from '../scene/water/water2.js';
 
-export default function createGUI(renderer, cameras, lights) {
+export default function createGUI(renderer, cameras, lights, hooks = {}) {
   const gui = new GUI({ title: 'Steuerung', width: 320 });
+  const { water: waterHooks } = hooks;
 
   // === Kamera ===
   const camFolder = gui.addFolder('Kamera');
@@ -83,6 +85,31 @@ export default function createGUI(renderer, cameras, lights) {
     .onChange(v => renderer.__setPixelRatioCap(v));
   perf.add(P, 'shadows').name('Schatten an/aus')
     .onChange(v => { renderer.shadowMap.enabled = v; });
+
+  if (waterHooks) {
+    const options = {
+      'Max (volle Auflösung)': WATER_QUALITY.ULTRA,
+      'Weniger Auflösung': WATER_QUALITY.HIGH,
+      'Noch weniger Auflösung': WATER_QUALITY.LOW,
+      'Keine Animation (FPS+)': WATER_QUALITY.STATIC
+    };
+    const W = {
+      qual: typeof waterHooks.getQuality === 'function'
+        ? waterHooks.getQuality()
+        : (waterHooks.isPerformanceMode?.() ? WATER_QUALITY.STATIC : WATER_QUALITY.ULTRA)
+    };
+    const waterFolder = gui.addFolder('Wasser');
+    waterFolder.add(W, 'qual', options)
+      .name('Wasser-Qualität')
+      .onChange((val) => {
+        if (typeof waterHooks.setQuality === 'function') {
+          waterHooks.setQuality(val);
+        } else if (typeof waterHooks.setPerformanceMode === 'function') {
+          waterHooks.setPerformanceMode(val === WATER_QUALITY.STATIC);
+        }
+      });
+    waterFolder.open();
+  }
 
   // === Belichtung ===
   const R = { exposure: renderer.toneMappingExposure };

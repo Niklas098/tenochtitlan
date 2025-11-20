@@ -30,13 +30,13 @@ import {
   updateTorch
 } from '../scene/torch/torch.js';
 import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
-import { createWater } from '../scene/water/water2.js';
+import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
 const WATER_COLOR = new THREE.Color();
 
-let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterSurface;
+let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController;
 let placerActive = false;
 
 init();
@@ -75,7 +75,7 @@ function init() {
     }
   });
 
-  waterSurface = createWater(scene, {
+  waterController = createWater(scene, {
     size: 10000,
     height: -100,
     textureRepeat: 4,
@@ -86,7 +86,12 @@ function init() {
     flowSpeed: 0.006
   });
 
-  gui = createGUI(renderer, cameras, lights);
+  gui = createGUI(renderer, cameras, lights, {
+    water: {
+      getQuality: () => waterController?.getQuality?.() ?? WATER_QUALITY.ULTRA,
+      setQuality: (mode) => waterController?.setQuality?.(mode)
+    }
+  });
 
   createTorchForCamera(cameras.fp.camera, {
     scene,
@@ -182,12 +187,10 @@ function animate() {
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
   updateTorch(dt);
-  if (waterSurface) {
+  if (waterController) {
     const daylight = getDaylightFactor();
     WATER_COLOR.copy(WATER_NIGHT_COLOR).lerp(WATER_DAY_COLOR, daylight);
-    waterSurface.material.uniforms.color.value.copy(WATER_COLOR);
-    waterSurface.material.uniforms.reflectivity.value = THREE.MathUtils.lerp(0.28, 0.7, daylight);
-    waterSurface.material.uniforms.config.value.w = THREE.MathUtils.lerp(2.8, 4.0, daylight);
+    updateWaterMaterials(daylight);
   }
 
   updateFireEmitters(dt, !isDaytime());
@@ -201,6 +204,33 @@ function animate() {
     `TIME:${getHours().toFixed(2)}h · ` +    // 🔹 Uhrzeit ins Overlay
     `FPS:${stats.fps} · MS:${stats.ms} · MB:${mem}`;
   stats.update();
+}
+
+function updateWaterMaterials(daylight) {
+  if (!waterController) return;
+  const reflectivity = THREE.MathUtils.lerp(0.28, 0.7, daylight);
+  const waveScale = THREE.MathUtils.lerp(2.8, 4.0, daylight);
+
+  const animatedSurfaces = waterController.getAnimatedSurfaces
+    ? waterController.getAnimatedSurfaces()
+    : [waterController.getHighQualitySurface?.()].filter(Boolean);
+
+  animatedSurfaces.forEach((surface) => {
+    const uniforms = surface?.material?.uniforms;
+    if (!uniforms?.color || !uniforms.reflectivity || !uniforms.config) return;
+    uniforms.color.value.copy(WATER_COLOR);
+    uniforms.reflectivity.value = reflectivity;
+    uniforms.config.value.w = waveScale;
+  });
+
+  const staticSurface = waterController.getPerformanceSurface
+    ? waterController.getPerformanceSurface()
+    : null;
+  if (staticSurface?.material) {
+    staticSurface.material.color.copy(WATER_COLOR);
+    staticSurface.material.roughness = THREE.MathUtils.lerp(0.48, 0.24, daylight);
+    staticSurface.material.metalness = THREE.MathUtils.lerp(0.02, 0.16, daylight);
+  }
 }
 
 function onResize() {
