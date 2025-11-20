@@ -102,7 +102,8 @@ export function createCameras(renderer, canvas, options = {}) {
     function resetHeight() { drone.position.y = conf.height; }
 
     // ===== FP (Ego) =====
-    const fp = new THREE.PerspectiveCamera(70, aspect, 0.05, 5000);
+    // längere Sichtweite nötig, damit die fernen Berge im Ego-Modus nicht ausgeclippt werden
+    const fp = new THREE.PerspectiveCamera(70, aspect, 0.05, 15000);
     fp.position.set(0, FP_BASE_HEIGHT, 3.2);
 
     const kfp = { w:false, a:false, s:false, d:false, locked:false, jumping:false };

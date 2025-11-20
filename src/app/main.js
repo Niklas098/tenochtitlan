@@ -31,6 +31,7 @@ import {
 } from '../scene/torch/torch.js';
 import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
 import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
+import { createMountains } from '../scene/mountains/mountains.js';
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
@@ -79,11 +80,20 @@ function init() {
     size: 10000,
     height: -100,
     textureRepeat: 4,
-    color: 0x1c2f3f,
-    reflectivity: 0.75,
-    waveScale: 3.2,
+    color: 0x1b3248,
+    reflectivity: 0.9,
+    waveScale: 2.6,
     flowDirection: new THREE.Vector2(-0.2, 0.08),
-    flowSpeed: 0.006
+    flowSpeed: 0.004
+  });
+
+  createMountains(scene, {
+    size: 20000,
+    segments: 256,
+    innerRadius: 5200,
+    outerRadius: 9800,
+    baseHeight: -140,
+    maxHeight: 4300
   });
 
   gui = createGUI(renderer, cameras, lights, {
@@ -208,8 +218,8 @@ function animate() {
 
 function updateWaterMaterials(daylight) {
   if (!waterController) return;
-  const reflectivity = THREE.MathUtils.lerp(0.55, 0.98, daylight);
-  const waveScale = THREE.MathUtils.lerp(3.0, 4.8, daylight);
+  const reflectivity = THREE.MathUtils.lerp(0.72, 1.02, daylight);
+  const waveScale = THREE.MathUtils.lerp(2.2, 3.6, daylight);
 
   const animatedSurfaces = waterController.getAnimatedSurfaces
     ? waterController.getAnimatedSurfaces()
@@ -228,8 +238,8 @@ function updateWaterMaterials(daylight) {
     : null;
   if (staticSurface?.material) {
     staticSurface.material.color.copy(WATER_COLOR);
-    staticSurface.material.roughness = THREE.MathUtils.lerp(0.36, 0.08, daylight);
-    staticSurface.material.metalness = THREE.MathUtils.lerp(0.08, 0.35, daylight);
+    staticSurface.material.roughness = THREE.MathUtils.lerp(0.26, 0.06, daylight);
+    staticSurface.material.metalness = THREE.MathUtils.lerp(0.12, 0.35, daylight);
     staticSurface.material.transparent = false;
     staticSurface.material.opacity = 1.0;
   }
