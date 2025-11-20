@@ -80,7 +80,7 @@ function init() {
     height: -100,
     textureRepeat: 4,
     color: 0x1c2f3f,
-    reflectivity: 0.28,
+    reflectivity: 0.75,
     waveScale: 3.2,
     flowDirection: new THREE.Vector2(-0.2, 0.08),
     flowSpeed: 0.006
@@ -208,8 +208,8 @@ function animate() {
 
 function updateWaterMaterials(daylight) {
   if (!waterController) return;
-  const reflectivity = THREE.MathUtils.lerp(0.28, 0.7, daylight);
-  const waveScale = THREE.MathUtils.lerp(2.8, 4.0, daylight);
+  const reflectivity = THREE.MathUtils.lerp(0.55, 0.98, daylight);
+  const waveScale = THREE.MathUtils.lerp(3.0, 4.8, daylight);
 
   const animatedSurfaces = waterController.getAnimatedSurfaces
     ? waterController.getAnimatedSurfaces()
@@ -228,8 +228,10 @@ function updateWaterMaterials(daylight) {
     : null;
   if (staticSurface?.material) {
     staticSurface.material.color.copy(WATER_COLOR);
-    staticSurface.material.roughness = THREE.MathUtils.lerp(0.48, 0.24, daylight);
-    staticSurface.material.metalness = THREE.MathUtils.lerp(0.02, 0.16, daylight);
+    staticSurface.material.roughness = THREE.MathUtils.lerp(0.36, 0.08, daylight);
+    staticSurface.material.metalness = THREE.MathUtils.lerp(0.08, 0.35, daylight);
+    staticSurface.material.transparent = false;
+    staticSurface.material.opacity = 1.0;
   }
 }
 

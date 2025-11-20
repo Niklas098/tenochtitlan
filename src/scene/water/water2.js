@@ -116,7 +116,7 @@ export function createWater(scene, {
     animatedSurfaces,
     staticSurface
   });
-  controller.setQuality(WATER_QUALITY.ULTRA);
+  controller.setQuality(WATER_QUALITY.HIGH);
   return controller;
 }
 
@@ -149,6 +149,7 @@ function createAnimatedWaterSurface({
 
   water.material.transparent = false;
   water.material.depthWrite = true;
+  water.material.opacity = 1.0;
   water.material.needsUpdate = true;
 
   if (water.material.uniforms.normalSampler) {
