@@ -293,10 +293,11 @@ export function createFireAndSmokeSystem(anchor, fireTexture = "/textures/fire.p
     fireLight.position.set(0, 20, 0);
     anchor.add(fireLight);
 
-    let enabled = true;  // Anfangszustand: an
+    let enabled = false;  // Anfangszustand: an
 
     function setEnabled(flag) {
         if (enabled === flag) {
+            fireLight.visible = flag;
             return;
         }   // nichts tun, wenn sich nichts ändert
         enabled = flag;
@@ -306,7 +307,6 @@ export function createFireAndSmokeSystem(anchor, fireTexture = "/textures/fire.p
         if (!flag) {
             // Tagsüber: alle Partikel weg
             fireSystem.clear();
-            smokeSystem.clear();
         }
     }
 
@@ -315,7 +315,6 @@ export function createFireAndSmokeSystem(anchor, fireTexture = "/textures/fire.p
 
         if (!enabled) return;
         fireSystem.update(deltaTime);
-        smokeSystem.update(deltaTime);
 
         const baseIntensity = intensity;
         const noise = (Math.random() - 0.5) * 50;
@@ -329,6 +328,5 @@ export function createFireAndSmokeSystem(anchor, fireTexture = "/textures/fire.p
         setEnabled,
         fireLight,
         firePoints: fireSystem.points,
-        smokePoints: smokeSystem.points,
     };
 }

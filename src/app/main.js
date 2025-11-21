@@ -30,7 +30,6 @@ import {
 } from '../scene/torch/torch.js';
 import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
 import {createFireAndSmokeSystem} from "../scene/torch/fire.js";
-import {loadTorchWithFire} from "../scene/torch/new_torch.js";
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
 let placerActive = false;
@@ -68,15 +67,6 @@ function init() {
 
   gui = createGUI(renderer, cameras, lights);
 
-    // Fackel mit Feuer laden (einmalig beim Start)
-    loadTorchWithFire({
-        scene,
-        cameras,
-        fireTexture: 'textures/fire.png',
-        smokeTexture: 'textures/smoke.png',
-    }).then((fx) => {
-        fireFX = fx; // kann auch null sein, wenn kein FireAnchor gefunden wurde
-    });
 
   initPlacer({
     scene,
