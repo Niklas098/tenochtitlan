@@ -23,7 +23,7 @@ export function buildCity(scene, { groundSize = 2048, groundRepeat = 500 } = {})
   groundGeo.rotateX(-Math.PI / 2);
 
   const textureLoader = new THREE.TextureLoader();
-  const base = '/textures/ground/sandy_gravel_02_';
+  const base = '/textures/sandy_gravel_02_';
 
   const wrapAndRepeat = (tex, { srgb = false } = {}) => {
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
