@@ -30,12 +30,15 @@ import {
   updateTorch
 } from '../scene/torch/torch.js';
 import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
-import {
-  updateWater,
-  setWaterTimeOfDayFactor
-} from '../scene/water/water.js';
+import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
+import { createMountains } from '../scene/mountains/mountains.js';
+import { createWeather } from '../scene/weather/weather.js';
 
-let renderer, scene, cameras, clock, lights, gui, stats, overlayEl;
+const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
+const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
+const WATER_COLOR = new THREE.Color();
+
+let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather;
 let placerActive = false;
 
 init();
@@ -74,7 +77,43 @@ function init() {
     }
   });
 
-  gui = createGUI(renderer, cameras, lights);
+  waterController = createWater(scene, {
+    size: 10000,
+    height: -100,
+    textureRepeat: 4,
+    color: 0x1b3248,
+    reflectivity: 0.9,
+    waveScale: 2.6,
+    flowDirection: new THREE.Vector2(-0.2, 0.08),
+    flowSpeed: 0.004,
+    fog: true
+  });
+
+  createMountains(scene, {
+    size: 20000,
+    segments: 256,
+    innerRadius: 5200,
+    outerRadius: 9800,
+    baseHeight: -140,
+    maxHeight: 4300
+  });
+
+  weather = createWeather(scene, {
+    waterController
+  });
+
+  gui = createGUI(renderer, cameras, lights, {
+    water: {
+      getQuality: () => waterController?.getQuality?.() ?? WATER_QUALITY.ULTRA,
+      setQuality: (mode) => waterController?.setQuality?.(mode)
+    },
+    weather: {
+      isFogEnabled: () => weather?.isFogEnabled?.() ?? false,
+      isRainEnabled: () => weather?.isRainEnabled?.() ?? false,
+      setFogEnabled: (on) => weather?.setFogEnabled?.(on),
+      setRainEnabled: (on) => weather?.setRainEnabled?.(on)
+    }
+  });
 
   createTorchForCamera(cameras.fp.camera, {
     scene,
@@ -170,8 +209,12 @@ function animate() {
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
   updateTorch(dt);
-  setWaterTimeOfDayFactor(getDaylightFactor());
-  updateWater(dt, cam);
+  weather?.update(dt, cam);
+  if (waterController) {
+    const daylight = getDaylightFactor();
+    WATER_COLOR.copy(WATER_NIGHT_COLOR).lerp(WATER_DAY_COLOR, daylight);
+    updateWaterMaterials(daylight);
+  }
 
   updateFireEmitters(dt, !isDaytime());
 
@@ -184,6 +227,35 @@ function animate() {
     `TIME:${getHours().toFixed(2)}h · ` +    // 🔹 Uhrzeit ins Overlay
     `FPS:${stats.fps} · MS:${stats.ms} · MB:${mem}`;
   stats.update();
+}
+
+function updateWaterMaterials(daylight) {
+  if (!waterController) return;
+  const reflectivity = THREE.MathUtils.lerp(0.72, 1.02, daylight);
+  const waveScale = THREE.MathUtils.lerp(2.2, 3.6, daylight);
+
+  const animatedSurfaces = waterController.getAnimatedSurfaces
+    ? waterController.getAnimatedSurfaces()
+    : [waterController.getHighQualitySurface?.()].filter(Boolean);
+
+  animatedSurfaces.forEach((surface) => {
+    const uniforms = surface?.material?.uniforms;
+    if (!uniforms?.color || !uniforms.reflectivity || !uniforms.config) return;
+    uniforms.color.value.copy(WATER_COLOR);
+    uniforms.reflectivity.value = reflectivity;
+    uniforms.config.value.w = waveScale;
+  });
+
+  const staticSurface = waterController.getPerformanceSurface
+    ? waterController.getPerformanceSurface()
+    : null;
+  if (staticSurface?.material) {
+    staticSurface.material.color.copy(WATER_COLOR);
+    staticSurface.material.roughness = THREE.MathUtils.lerp(0.26, 0.06, daylight);
+    staticSurface.material.metalness = THREE.MathUtils.lerp(0.12, 0.35, daylight);
+    staticSurface.material.transparent = false;
+    staticSurface.material.opacity = 1.0;
+  }
 }
 
 function onResize() {

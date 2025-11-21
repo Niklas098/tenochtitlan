@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createHitboxForGLB } from '../../util/collision.js';
 import {
-  createWaterSurface,
   createShoreHeatSampler,
   sculptGroundWithShoreHeatmap
 } from '../water/water.js';
@@ -262,7 +261,41 @@ export function buildCity(scene, {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  if (waterOptions) createWaterSurface(waterOptions);
+  // textures
+  const repeat = 160;
+
+  new THREE.TextureLoader().load(
+    base,
+    (tx) => {
+      tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+      tx.repeat.set(repeat, repeat);
+      tx.colorSpace = THREE.SRGBColorSpace;
+      groundMat.map = tx;
+      groundMat.needsUpdate = true;
+    }
+  );
+
+  new THREE.TextureLoader().load(
+    base + 'coast_sand_01_disp_4k.png',
+    (tx) => {
+      tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+      tx.repeat.set(repeat, repeat);
+      tx.colorSpace = THREE.NoColorSpace;
+
+      groundMat.displacementMap = tx;
+      groundMat.displacementScale = 0.4;
+
+      const n = createNormalFromHeightTex(tx, 2.4, repeat);
+      if (n) {
+        groundMat.normalMap = n;
+        groundMat.normalScale = new THREE.Vector2(1, 1);
+      }
+
+      groundMat.needsUpdate = true;
+    }
+  );
+
+  // Water surface is now created via the dedicated Water2 module (see src/scene/water/water2.js).
 }
 
 // -----------------------------------------------------------------------------
