@@ -507,6 +507,13 @@ const placements = [
     position: { x: 50, y: 0, z: -30 },
     rotation: { x: 0, y: Math.PI / 2, z: 0 },
     scale: 1
+  },
+  {
+    name: 'bodenplatte-01',
+    url: '/models/Bodenplatte.glb',
+    position: { x: -placerSpacing, y: 0, z: -placerSpacing },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 1
   }
 ];
 
@@ -520,7 +527,6 @@ placements.forEach(({ url, name, position, rotation, scale, hitboxOptions }) => 
     onLoaded: (model) => registerPlaceableObject(model, name)
   });
 });
-
 
 
 
