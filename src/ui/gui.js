@@ -11,7 +11,7 @@ import { WATER_QUALITY } from '../scene/water/water2.js';
 
 export default function createGUI(renderer, cameras, lights, hooks = {}) {
   const gui = new GUI({ title: 'Steuerung', width: 320 });
-  const { water: waterHooks } = hooks;
+  const { water: waterHooks, weather: weatherHooks } = hooks;
 
   // === Kamera ===
   const camFolder = gui.addFolder('Kamera');
@@ -109,6 +109,25 @@ export default function createGUI(renderer, cameras, lights, hooks = {}) {
         }
       });
     waterFolder.open();
+  }
+
+  if (weatherHooks) {
+    const Weather = {
+      fog: typeof weatherHooks.isFogEnabled === 'function'
+        ? weatherHooks.isFogEnabled()
+        : false,
+      rain: typeof weatherHooks.isRainEnabled === 'function'
+        ? weatherHooks.isRainEnabled()
+        : false
+    };
+    const weatherFolder = gui.addFolder('Wetter');
+    weatherFolder.add(Weather, 'fog')
+      .name('Nebel')
+      .onChange(v => weatherHooks.setFogEnabled?.(v));
+    weatherFolder.add(Weather, 'rain')
+      .name('Regen')
+      .onChange(v => weatherHooks.setRainEnabled?.(v));
+    weatherFolder.open();
   }
 
   // === Belichtung ===

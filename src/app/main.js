@@ -32,12 +32,13 @@ import {
 import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
 import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
 import { createMountains } from '../scene/mountains/mountains.js';
+import { createWeather } from '../scene/weather/weather.js';
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
 const WATER_COLOR = new THREE.Color();
 
-let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController;
+let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather;
 let placerActive = false;
 
 init();
@@ -84,7 +85,8 @@ function init() {
     reflectivity: 0.9,
     waveScale: 2.6,
     flowDirection: new THREE.Vector2(-0.2, 0.08),
-    flowSpeed: 0.004
+    flowSpeed: 0.004,
+    fog: true
   });
 
   createMountains(scene, {
@@ -96,10 +98,20 @@ function init() {
     maxHeight: 4300
   });
 
+  weather = createWeather(scene, {
+    waterController
+  });
+
   gui = createGUI(renderer, cameras, lights, {
     water: {
       getQuality: () => waterController?.getQuality?.() ?? WATER_QUALITY.ULTRA,
       setQuality: (mode) => waterController?.setQuality?.(mode)
+    },
+    weather: {
+      isFogEnabled: () => weather?.isFogEnabled?.() ?? false,
+      isRainEnabled: () => weather?.isRainEnabled?.() ?? false,
+      setFogEnabled: (on) => weather?.setFogEnabled?.(on),
+      setRainEnabled: (on) => weather?.setRainEnabled?.(on)
     }
   });
 
@@ -197,6 +209,7 @@ function animate() {
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
   updateTorch(dt);
+  weather?.update(dt, cam);
   if (waterController) {
     const daylight = getDaylightFactor();
     WATER_COLOR.copy(WATER_NIGHT_COLOR).lerp(WATER_DAY_COLOR, daylight);
