@@ -1,6 +1,7 @@
 // src/scene/city/city.js
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { createHitboxForGLB } from '../../util/collision.js';
 import {
   createShoreHeatSampler,
@@ -261,20 +262,6 @@ export function buildCity(scene, {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // textures
-  const repeat = 160;
-
-  new THREE.TextureLoader().load(
-    base,
-    (tx) => {
-      tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
-      tx.repeat.set(repeat, repeat);
-      tx.colorSpace = THREE.SRGBColorSpace;
-      groundMat.map = tx;
-      groundMat.needsUpdate = true;
-    }
-  );
-
 
   // Water surface is now created via the dedicated Water2 module (see src/scene/water/water2.js).
 }
@@ -282,6 +269,21 @@ export function buildCity(scene, {
 // -----------------------------------------------------------------------------
 // GLB Loading
 // -----------------------------------------------------------------------------
+const gltfLoader = new GLTFLoader();
+const gltfCache = new Map();
+
+const fetchGLTF = (url) => {
+  if (!gltfCache.has(url)) {
+    gltfCache.set(
+      url,
+      new Promise((resolve, reject) => {
+        gltfLoader.load(url, resolve, undefined, reject);
+      })
+    );
+  }
+  return gltfCache.get(url);
+};
+
 export function loadGLB(
   scene,
   {
@@ -297,41 +299,44 @@ export function loadGLB(
     onLoaded = null
   } = {}
 ) {
-  const loader = new GLTFLoader();
-  loader.load(url, (gltf) => {
-    const model = gltf.scene;
+  fetchGLTF(url)
+    .then((gltf) => {
+      const model = SkeletonUtils.clone(gltf.scene);
 
-    model.position.set(position.x, position.y, position.z);
-    model.rotation.set(rotation.x, rotation.y, rotation.z);
-    if (typeof scale === 'number') model.scale.setScalar(scale);
-    else model.scale.set(scale.x ?? 1, scale.y ?? 1, scale.z ?? 1);
+      model.position.set(position.x, position.y, position.z);
+      model.rotation.set(rotation.x, rotation.y, rotation.z);
+      if (typeof scale === 'number') model.scale.setScalar(scale);
+      else model.scale.set(scale.x ?? 1, scale.y ?? 1, scale.z ?? 1);
 
-    model.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = castShadow;
-        child.receiveShadow = receiveShadow;
-      }
-    });
-
-    scene.add(model);
-
-    // align bottom
-    let box = new THREE.Box3().setFromObject(model);
-    const dy = -box.min.y;
-    if (Math.abs(dy) > 1e-4) model.position.y += dy;
-    model.position.y -= lowerBy;
-
-    if (showWireframe) {
       model.traverse((child) => {
-        if (child.isMesh && child.geometry) {
-          addWireframeHelperForGeometry(scene, child.geometry, 0.2, 0xff8800);
+        if (child.isMesh) {
+          child.castShadow = castShadow;
+          child.receiveShadow = receiveShadow;
         }
       });
-    }
 
-    createHitboxForGLB(scene, model, hitboxOptions || undefined);
-    if (onLoaded) onLoaded(model, gltf);
-  });
+      scene.add(model);
+
+      // align bottom
+      let box = new THREE.Box3().setFromObject(model);
+      const dy = -box.min.y;
+      if (Math.abs(dy) > 1e-4) model.position.y += dy;
+      model.position.y -= lowerBy;
+
+      if (showWireframe) {
+        model.traverse((child) => {
+          if (child.isMesh && child.geometry) {
+            addWireframeHelperForGeometry(scene, child.geometry, 0.2, 0xff8800);
+          }
+        });
+      }
+
+      createHitboxForGLB(scene, model, hitboxOptions || undefined);
+      if (onLoaded) onLoaded(model, gltf);
+    })
+    .catch((err) => {
+      console.error(`Failed to load GLB ${url}`, err);
+    });
 }
 
 export function updateCity() {}
