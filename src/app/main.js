@@ -494,6 +494,48 @@ const placements = [
     scale: 7
   },
   {
+    name: 'agave-01',
+    url: '/models/agave.glb',
+    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 7
+  },
+  {
+    name: 'agave-02',
+    url: '/models/agave.glb',
+    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 7
+  },
+  {
+    name: 'agave-03',
+    url: '/models/agave.glb',
+    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 7
+  },
+  {
+    name: 'agave-04',
+    url: '/models/agave.glb',
+    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 7
+  },
+  {
+    name: 'agave-05',
+    url: '/models/agave.glb',
+    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 7
+  },
+  {
+    name: 'agave-06',
+    url: '/models/agave.glb',
+    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 7
+  },
+  {
     name: 'buesche-01',
     url: '/models/buesche.glb',
     position: { x: -8, y: 6.662000001430513, z: -10 },
@@ -569,70 +611,146 @@ placements.forEach(({ url, name, position, rotation, scale, hitboxOptions }) => 
   });
 });
 
-const placementsWithLights = [
-    {
-        name: 'firesockel-01',
-        url: '/models/Feuerschale_Empty.glb',
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
-        scale: 0.6,
-        emptyName: 'BowlFirePoint',
-        intensity: 1000,
-        distance: 1000
-    },
-    {
-        name: 'firesockel-02',
-        url: '/models/Feuerschale_Empty.glb',
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
-        scale: 0.6,
-        emptyName: 'BowlFirePoint',
-        intensity: 1000,
-        distance: 1000
-    },
-    {
-        name: 'firesockel-03',
-        url: '/models/Feuerschale_Empty.glb',
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
-        scale: 0.6,
-        emptyName: 'BowlFirePoint',
-        intensity: 1000,
-        distance: 1000
-    }
-]
+const firesockelPlacements = [
+  {
+    name: 'firesockel-01',
+    position: { x: 144.81657660287223, y: 0.4634689266026015, z: -134.11907294843775 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-02',
+    position: { x: 32.64133887349501, y: 0.4634689266026015, z: -25.289762697379896 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-03',
+    position: { x: -24.27589726213353, y: 0.4634689266026015, z: -38.75745585683697 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-04',
+    position: { x: -109.80875742922568, y: 0.4634689266026015, z: -135.08176569400598 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-05',
+    position: { x: -110.46683210910636, y: 0.4634689266026015, z: -150.4100736012033 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-06',
+    position: { x: 56.44787171362896, y: 0.4634689266026015, z: -39.41481352736458 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-07',
+    position: { x: 87.13778875326501, y: 21.738249900216353, z: -106.6385886495138 },
+    rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
+    scale: 0.5
+  },
+  {
+    name: 'firesockel-08',
+    position: { x: 7.043199998855589, y: 0.4634689266026015, z: -23.812701565534322 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-09',
+    position: { x: 144.4874789093707, y: 0.4634689266026015, z: -148.2096207219619 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-10',
+    position: { x: 6.962207429360289, y: 0.4634689266026015, z: 16.110733574976916 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-11',
+    position: { x: 32.61083989923417, y: 0.4634689266026015, z: 16.18053833141102 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-12',
+    position: { x: -45.20651156402757, y: 0.4634689266026015, z: -39.45901667478216 },
+    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
+    scale: 0.6
+  },
+  {
+    name: 'firesockel-13',
+    position: { x: 87.13778875326501, y: 21.738249900216353, z: -106.6385886495138 },
+    rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
+    scale: 0.5
+  },
+  {
+    name: 'firesockel-14',
+    position: { x: 87.13778875326501, y: 21.738249900216353, z: -106.6385886495138 },
+    rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
+    scale: 0.5
+  },
+  {
+    name: 'firesockel-15',
+    position: { x: 87.13778875326501, y: 21.738249900216353, z: -106.6385886495138 },
+    rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
+    scale: 0.5
+  }
+];
 
-    placementsWithLights.forEach(({ url, name, position, rotation, scale, hitboxOptions, emptyName, intensity, distance}) => {
-        loadGLB(scene, {
-            url,
-            position,
-            rotation,
-            scale,
-            hitboxOptions,
-            onLoaded: (model) => {
-                registerPlaceableObject(model, name);
+const placementsWithLights = firesockelPlacements.map(
+  ({ name, position, rotation, scale, hitboxOptions }) => ({
+    name,
+    url: '/models/Feuerschale_Empty.glb',
+    position,
+    rotation,
+    scale,
+    hitboxOptions,
+    emptyName: 'BowlFirePoint',
+    intensity: 1000,
+    distance: 1000
+  })
+);
 
-                let fireMarker = null;
-                model.traverse((child) => {
-                    if (child.name === emptyName) {
-                        fireMarker = child;
-                    }
-                });
+placementsWithLights.forEach(
+  ({ url, name, position, rotation, scale, hitboxOptions, emptyName, intensity, distance }) => {
+    loadGLB(scene, {
+      url,
+      position,
+      rotation,
+      scale,
+      hitboxOptions,
+      onLoaded: (model) => {
+        registerPlaceableObject(model, name);
 
-                if (!fireMarker) {
-                    console.warn('Kein Fire-Empty im Sockel gefunden!');
-                    return;
-                }
+        let fireMarker = null;
+        model.traverse((child) => {
+          if (child.name === emptyName) {
+            fireMarker = child;
+          }
+        });
 
-                // Feuer-Emitter am Empty erstellen
-                const fireFX = createFireAndSmokeSystem(
-                    fireMarker,
-                    "textures/fire.png",
-                    "textures/smoke.png",
-                    intensity,
-                    distance
-                )
-                fireSystems.push(fireFX)
-            }
+        if (!fireMarker) {
+          console.warn('Kein Fire-Empty im Sockel gefunden!');
+          return;
+        }
+
+        // Feuer-Emitter am Empty erstellen
+        const fireFX = createFireAndSmokeSystem(
+          fireMarker,
+          'textures/fire.png',
+          'textures/smoke.png',
+          intensity,
+          distance
+        );
+        fireSystems.push(fireFX);
+      }
     });
-});
+  }
+);
