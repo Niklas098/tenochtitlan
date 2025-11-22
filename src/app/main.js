@@ -33,6 +33,7 @@ import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters
 import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
 import { createMountains } from '../scene/mountains/mountains.js';
 import { createWeather } from '../scene/weather/weather.js';
+import {createFireAndSmokeSystem} from "../scene/torch/fire.js";
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
@@ -40,6 +41,7 @@ const WATER_COLOR = new THREE.Color();
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather;
 let placerActive = false;
+let fireSystems = [];
 
 init();
 animate();
@@ -115,12 +117,6 @@ function init() {
     }
   });
 
-  createTorchForCamera(cameras.fp.camera, {
-    scene,
-    offset: { x: 0.38, y: -0.42, z: -0.78 },
-    rotation: { x: -0.33, y: 0.34, z: 0.06 },
-    intensity: 3.8
-  });
 
   initPlacer({
     scene,
@@ -216,7 +212,10 @@ function animate() {
     updateWaterMaterials(daylight);
   }
 
-  updateFireEmitters(dt, !isDaytime());
+    fireSystems.forEach((fireFX) => {
+        fireFX.setEnabled(!isDaytime());
+        fireFX.update(dt, t)
+    });
 
   renderer.render(scene, cam);
 
@@ -266,99 +265,6 @@ function onResize() {
     cam.updateProjectionMatrix();
   }
 }
-
-loadGLB(scene, {
-    url: '/models/Feuersockel.glb',
-    position: { x: 0, y: 0, z: 0 },
-    rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-    scale: 1,
-    hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
-    onLoaded: (model) => {
-        registerPlaceableObject(model, 'Feuersockel-01');
-
-        let fireMarker = null;
-        model.traverse((child) => {
-            if (child.name === 'FirePointStandingTorch') {
-                fireMarker = child;
-            }
-        });
-
-        if (!fireMarker) {
-            console.warn('Kein Fire-Empty im Sockel gefunden!');
-            return;
-        }
-
-        // Feuer-Emitter am Empty erstellen
-        createFireEmitter({
-            parent: fireMarker,
-            offset: { x: 0, y: 0, z: 0 }, // bei Bedarf minimal nachjustieren
-            intensity: 500,
-            radius: 500
-        });
-    }
-});
-
-loadGLB(scene,{
-   url: '/models/Feuersockel.glb',
-   position: { x: 0, y: 0, z: 0 },
-   rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-   scale: 1,
-   hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
-   onLoaded: (model) => {
-       registerPlaceableObject(model, 'Feuersockel-02');
-
-       let fireMarker = null;
-       model.traverse((child) => {
-           if (child.name === 'FirePointStandingTorch') {
-               fireMarker = child;
-           }
-       });
-
-       if (!fireMarker) {
-           console.warn('Kein Fire-Empty im Sockel gefunden!');
-           return;
-       }
-
-       // Feuer-Emitter am Empty erstellen
-       createFireEmitter({
-           parent: fireMarker,
-           offset: { x: 0, y: 0, z: 0 }, // bei Bedarf minimal nachjustieren
-           intensity: 500,
-           radius: 500
-       });
-   }
-});
-
-loadGLB(scene, {
-    url: '/models/TempelmitFeuer.glb',
-    position: { x: 0, y: 0, z: 0 },
-    rotation: { x: 0, y: Math.PI * 0.25, z: 0 },
-    scale: 1.7,
-    hitboxOptions: { marginXZ: 0.3, marginY: 0.15, minDimension: 0.05 },
-    onLoaded: (model) => {
-        registerPlaceableObject(model, 'TempelLinus');
-
-        let fireMarker = null;
-        model.traverse((child) => {
-            if (child.name === 'Leer') {
-                fireMarker = child;
-            }
-        });
-
-        if (!fireMarker) {
-            console.warn('Kein Fire-Empty im Sockel gefunden!');
-            return;
-        }
-
-        // Feuer-Emitter am Empty erstellen
-        createFireEmitter({
-            parent: fireMarker,
-            offset: { x: 0, y: 0, z: 0 }, // bei Bedarf minimal nachjustieren
-            intensity: 1000,
-            radius: 1000
-        });
-    }
-});
 
 // Platzierbare Modelle kompakt im Array (leichter Offset für den Placer)
 const placerSpacing = 12;
@@ -600,5 +506,70 @@ placements.forEach(({ url, name, position, rotation, scale, hitboxOptions }) => 
   });
 });
 
+const placementsWithLights = [
+    {
+        name: 'firesockel-01',
+        url: '/models/Feuerschale_Empty.glb',
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
+        scale: 0.6,
+        emptyName: 'BowlFirePoint',
+        intensity: 1000,
+        distance: 1000
+    },
+    {
+        name: 'firesockel-02',
+        url: '/models/Feuerschale_Empty.glb',
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
+        scale: 0.6,
+        emptyName: 'BowlFirePoint',
+        intensity: 1000,
+        distance: 1000
+    },
+    {
+        name: 'firesockel-03',
+        url: '/models/Feuerschale_Empty.glb',
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
+        scale: 0.6,
+        emptyName: 'BowlFirePoint',
+        intensity: 1000,
+        distance: 1000
+    }
+]
 
+    placementsWithLights.forEach(({ url, name, position, rotation, scale, hitboxOptions, emptyName, intensity, distance}) => {
+        loadGLB(scene, {
+            url,
+            position,
+            rotation,
+            scale,
+            hitboxOptions,
+            onLoaded: (model) => {
+                registerPlaceableObject(model, name);
 
+                let fireMarker = null;
+                model.traverse((child) => {
+                    if (child.name === emptyName) {
+                        fireMarker = child;
+                    }
+                });
+
+                if (!fireMarker) {
+                    console.warn('Kein Fire-Empty im Sockel gefunden!');
+                    return;
+                }
+
+                // Feuer-Emitter am Empty erstellen
+                const fireFX = createFireAndSmokeSystem(
+                    fireMarker,
+                    "textures/fire.png",
+                    "textures/smoke.png",
+                    intensity,
+                    distance
+                )
+                fireSystems.push(fireFX)
+            }
+    });
+});
