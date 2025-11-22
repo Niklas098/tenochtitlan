@@ -480,11 +480,74 @@ const placements = [
     scale: 0.7
   },
   {
-    name: 'supercar-01',
-    url: '/models/supercar.glb',
-    position: { x: 50, y: 0, z: -30 },
-    rotation: { x: 0, y: Math.PI / 2, z: 0 },
-    scale: 1
+    name: 'statue-01',
+    url: '/models/statue.glb',
+    position: { x: 3.1688799791706135, y: 6.662000001430513, z: -12.762688262803424 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 7
+  },
+  {
+    name: 'statue-02',
+    url: '/models/statue.glb',
+    position: { x: 39.44407997993355, y: 6.662000001430513, z: -12.762688262803424 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 7
+  },
+  {
+    name: 'buesche-01',
+    url: '/models/buesche.glb',
+    position: { x: -8, y: 6.662000001430513, z: -10 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 6
+  },
+  {
+    name: 'buesche-02',
+    url: '/models/buesche.glb',
+    position: { x: 48, y: 6.662000001430513, z: -10 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 6
+  },
+  {
+    name: 'buesche-03',
+    url: '/models/buesche.glb',
+    position: { x: 60, y: 6.662000001430513, z: -16 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 6
+  },
+  {
+    name: 'buesche-04',
+    url: '/models/buesche.glb',
+    position: { x: 62, y: 6.662000001430513, z: 2 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 6
+  },
+  {
+    name: 'buesche-05',
+    url: '/models/buesche.glb',
+    position: { x: 40, y: 6.662000001430513, z: 6 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 6
+  },
+  {
+    name: 'buesche-06',
+    url: '/models/buesche.glb',
+    position: { x: 34, y: 6.662000001430513, z: -12 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 6
+  },
+  {
+    name: 'buesche-07',
+    url: '/models/buesche.glb',
+    position: { x: 50, y: 6.662000001430513, z: -24 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 6
+  },
+  {
+    name: 'buesche-08',
+    url: '/models/buesche.glb',
+    position: { x: 66, y: 6.662000001430513, z: -6 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 6
   },
   {
     name: 'bodenplatte-01',

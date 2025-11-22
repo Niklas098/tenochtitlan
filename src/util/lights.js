@@ -95,6 +95,7 @@ export function createLights(scene) {
   const sun = new THREE.DirectionalLight(0xffffff, SUN_DEFAULT_INTENSITY);
   sun.position.set(-2000, 360, -500); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 6000; sun.shadow.camera.left = -2500; sun.shadow.camera.right = 2500; sun.shadow.camera.top = 1800; sun.shadow.camera.bottom = -1800;
+
   const sunTarget = new THREE.Object3D(); group.add(sunTarget); sun.target = sunTarget; group.add(sun);
 
   const moon = new THREE.DirectionalLight(0xcfe0ff, 0.0);
