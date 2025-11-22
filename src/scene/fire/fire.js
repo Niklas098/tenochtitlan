@@ -14,7 +14,7 @@ import * as THREE from 'three';
  *   smokePoints: THREE.Points
  * }}
  */
-export function createFireAndSmokeSystem(anchor, fireTexture = "/textures/fire.png", smokeTexture = "/textures/smoke.png", intensity, distance) {
+export function createFireSystem(anchor, fireTexture = "/textures/fire.png", intensity, distance, radius = 0.7, lightHeight = 20, noiseValue = 50, sineValue = 50) {
     // ---------------------------------------------------------------------------
     // Interne Hilfsfunktionen / Shader (sichtbar nur innerhalb dieser Funktion)
     // ---------------------------------------------------------------------------
@@ -264,7 +264,7 @@ export function createFireAndSmokeSystem(anchor, fireTexture = "/textures/fire.p
         parent: anchor,
         texturePath: fireTexture,
         rate: 120,
-        radius: 0.7,
+        radius: radius,
         maxLife: 1.0,
         maxSize: 3.0,
         baseVelocity: new THREE.Vector3(0, 1.8, 0),
@@ -290,7 +290,7 @@ export function createFireAndSmokeSystem(anchor, fireTexture = "/textures/fire.p
 
     // 💡 flackerndes Licht
     const fireLight = new THREE.PointLight(0xffaa55, intensity, distance);
-    fireLight.position.set(0, 20, 0);
+    fireLight.position.set(0, lightHeight, 0);
     anchor.add(fireLight);
 
     let enabled = false;  // Anfangszustand: an
@@ -317,8 +317,8 @@ export function createFireAndSmokeSystem(anchor, fireTexture = "/textures/fire.p
         fireSystem.update(deltaTime);
 
         const baseIntensity = intensity;
-        const noise = (Math.random() - 0.5) * 50;
-        const sine = Math.sin(elapsedTime * 10.0) * 50;
+        const noise = (Math.random() - 0.5) * noiseValue;
+        const sine = Math.sin(elapsedTime * 10.0) * sineValue;
         fireLight.intensity = baseIntensity + noise + sine;
     }
 

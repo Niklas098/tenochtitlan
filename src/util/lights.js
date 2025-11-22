@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
-import { setTorchNightMode } from '../scene/torch/torch.js';
 
 let lights = null;
 let state = { hours: 13.0, auto: false, speed: 0.25, daylightFactor: 1.0 };
@@ -117,7 +116,6 @@ export function setTimeOfDay(hours) {
   state.daylightFactor = clamp01(p.sunI / SUN_DEFAULT_INTENSITY);
   if (!lights) return;
   const { sun, sunTarget, moon, moonMesh, moonHalo, moonTarget, hemi, starField, sky } = lights;
-  setTorchNightMode(!p.isDay);
 
   sun.position.copy(p.sunPos); sun.color.copy(p.sunColor); sun.intensity = p.sunI; sunTarget.position.set(0, 0, 0); sun.target.updateMatrixWorld?.();
 

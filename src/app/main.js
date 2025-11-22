@@ -25,15 +25,11 @@ import {
   setPlacerActiveCamera,
   registerPlaceableObject
 } from '../ui/placer.js';
-import {
-  createTorchForCamera,
-  updateTorch
-} from '../scene/torch/torch.js';
-import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
 import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
 import { createMountains } from '../scene/mountains/mountains.js';
 import { createWeather } from '../scene/weather/weather.js';
-import {createFireAndSmokeSystem} from "../scene/torch/fire.js";
+import {createFireSystem} from "../scene/fire/fire.js";
+import {initEgoTorch, setEgoTorchActive, updateEgoTorch} from "../scene/fire/torch.js";
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
@@ -69,6 +65,15 @@ function init() {
   switchToCamera('drone');
 
   lights = createLights(scene);
+
+  scene.add(cameras.fp.camera);
+    initEgoTorch(cameras.fp.camera, {
+        url: '/models/Fackel_Empty.glb',
+        emptyName: 'TorchFirePoint',           // wie dein Empty im GLB heißt
+        fireTex: '/textures/fire.png',
+        intensity: 1000,
+        distance: 1000
+    });
 
   // Kleinere Map -> FP wirkt größer
   buildCity(scene, {
@@ -204,7 +209,6 @@ function animate() {
 
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
-  updateTorch(dt);
   weather?.update(dt, cam);
   if (waterController) {
     const daylight = getDaylightFactor();
@@ -216,6 +220,11 @@ function animate() {
         fireFX.setEnabled(!isDaytime());
         fireFX.update(dt, t)
     });
+
+    // --- Ego-Fackel ---
+    const torchShouldBeOn = (type === 'fp') && !isDaytime();
+    setEgoTorchActive(torchShouldBeOn);
+    updateEgoTorch(dt, t);
 
   renderer.render(scene, cam);
 
@@ -562,10 +571,9 @@ const placementsWithLights = [
                 }
 
                 // Feuer-Emitter am Empty erstellen
-                const fireFX = createFireAndSmokeSystem(
+                const fireFX = createFireSystem(
                     fireMarker,
                     "textures/fire.png",
-                    "textures/smoke.png",
                     intensity,
                     distance
                 )
