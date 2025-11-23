@@ -22,6 +22,7 @@ const state = {
   enabled: false,
   scene: null,
   domElement: null,
+  onEnabledChange: null,
   activeCamera: null,
   options: { ...DEFAULT_OPTIONS },
   placeables: new Set(),
@@ -35,7 +36,6 @@ const state = {
   suppressSelectionUntilPointerUp: false,
   gui: null,
   guiState: {
-    enabled: false,
     mode: 'translate',
     x: 0,
     y: 0,
@@ -100,11 +100,13 @@ export function initPlacer({
   defaultEnabled = false,
   keyboardMoveSpeed,
   keyboardVerticalSpeed,
-  keyboardRotationSpeedDeg
+  keyboardRotationSpeedDeg,
+  onEnabledChange
 } = {}) {
   if (state.initialized) return;
   state.scene = scene;
   state.domElement = domElement || document.body;
+  state.onEnabledChange = typeof onEnabledChange === 'function' ? onEnabledChange : null;
   state.options.keyboardMoveSpeed = keyboardMoveSpeed ?? DEFAULT_OPTIONS.keyboardMoveSpeed;
   state.options.keyboardVerticalSpeed = keyboardVerticalSpeed ?? DEFAULT_OPTIONS.keyboardVerticalSpeed;
   state.options.keyboardRotationSpeedDeg = keyboardRotationSpeedDeg ?? DEFAULT_OPTIONS.keyboardRotationSpeedDeg;
@@ -141,13 +143,9 @@ export function updatePlacer(delta = 0) {
  * @param {boolean} enabled
  */
 export function setPlacerEnabled(enabled) {
-  state.enabled = !!enabled;
-  state.guiState.enabled = state.enabled;
-  if (state.guiControllers.enabled) {
-    suppressEnabledChange = true;
-    state.guiControllers.enabled.setValue(state.enabled);
-    suppressEnabledChange = false;
-  }
+  const nextEnabled = !!enabled;
+  const changed = nextEnabled !== state.enabled;
+  state.enabled = nextEnabled;
   if (!state.enabled) {
     state.controlsDragging = false;
     state.pendingPersistAfterDrag = false;
@@ -156,6 +154,12 @@ export function setPlacerEnabled(enabled) {
   }
   refreshTransformControlsState();
   refreshCursor();
+  if (state.gui) {
+    state.enabled ? state.gui.show() : state.gui.hide();
+  }
+  if (changed && typeof state.onEnabledChange === 'function') {
+    state.onEnabledChange(state.enabled);
+  }
 }
 
 /**
@@ -210,12 +214,6 @@ function setupGUI() {
   state.gui = new GUI({ title: 'Placer', width: 300 });
   state.gui.domElement.style.zIndex = '5';
 
-  state.guiControllers.enabled = state.gui.add(state.guiState, 'enabled').name('Placer aktiv');
-  state.guiControllers.enabled.onChange((v) => {
-    if (suppressEnabledChange) return;
-    setPlacerEnabled(v);
-  });
-
   const transform = state.gui.addFolder('Transform');
   state.guiControllers.mode = transform.add(state.guiState, 'mode', ['translate', 'rotate']).name('Gizmo')
     .onChange((mode) => {
@@ -228,7 +226,6 @@ function setupGUI() {
   state.guiControllers.z = transform.add(state.guiState, 'z').name('Pos Z').onChange((v) => applyGuiTransform('z', v));
   state.guiControllers.rotY = transform.add(state.guiState, 'rotY').name('Rotation Y (°)').onChange((v) => applyGuiTransform('rotY', v));
 
-  transform.close();
   toggleTransformInputs(false);
 
   const actionsFolder = state.gui.addFolder('Aktionen');
@@ -248,7 +245,9 @@ function setupGUI() {
   actionsFolder.add(actions, 'exportLayout').name('Layout kopieren');
   actionsFolder.add(actions, 'importLayout').name('Layout einfügen');
   actionsFolder.add(actions, 'reloadLayout').name('Layout vom Server laden');
-  actionsFolder.close();
+
+  // Standardmäßig versteckt, bis der Placer aktiv ist
+  state.gui.hide();
 }
 
 function setupTransformControls() {

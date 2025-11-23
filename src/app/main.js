@@ -39,7 +39,9 @@ const WATER_COLOR = new THREE.Color();
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather, hotspotManager;
 let placerActive = false;
+let guiHiddenBeforePlacer = false;
 let fireSystems = [];
+let torchUserEnabled = true; // user toggle keeps torch on/off while in FP view
 
 async function init() {
   scene = new THREE.Scene();
@@ -126,7 +128,8 @@ async function init() {
   initPlacer({
     scene,
     domElement: renderer.domElement,
-    defaultEnabled: false
+    defaultEnabled: false,
+    onEnabledChange: handlePlacerModeChange
   });
 
   await loadPlacementsAndSpawn();
@@ -159,6 +162,7 @@ async function init() {
       showStars(!day);
     }
     if (e.code === 'KeyG') {
+      if (placerActive) return;
       gui._hidden ? gui.show() : gui.hide();
     }
     if (e.code === 'KeyR') {
@@ -168,8 +172,13 @@ async function init() {
       toggleHitboxVisibility();
     }
     if (e.code === 'KeyP') {
-      placerActive = !placerActive;
-      setPlacerEnabled(placerActive);
+      setPlacerEnabled(!placerActive);
+    }
+    if (e.code === 'KeyF' && getActiveCameraType() === 'fp') {
+      torchUserEnabled = !torchUserEnabled;
+      const torchShouldBeOn = !isDaytime() && torchUserEnabled;
+      setEgoTorchActive(torchShouldBeOn);
+      e.preventDefault();
     }
 
     // 🔹 Komfort: Zeit manuell nudge’n (optional)
@@ -195,6 +204,19 @@ async function init() {
 // 🔹 interner Status für Auto-Zeitfluss
 let _auto = false;
 let _speed = 0.25;
+
+function handlePlacerModeChange(enabled) {
+  placerActive = enabled;
+  if (enabled) {
+    guiHiddenBeforePlacer = gui?._hidden ?? false;
+    gui?.hide();
+  } else {
+    if (!guiHiddenBeforePlacer) {
+      gui?.show();
+    }
+    guiHiddenBeforePlacer = false;
+  }
+}
 
 function animate() {
   requestAnimationFrame(animate);
@@ -231,7 +253,7 @@ function animate() {
     });
 
     // --- Ego-Fackel ---
-    const torchShouldBeOn = (type === 'fp') && !isDaytime();
+    const torchShouldBeOn = (type === 'fp') && !isDaytime() && torchUserEnabled;
     setEgoTorchActive(torchShouldBeOn);
     updateEgoTorch(dt, t);
 

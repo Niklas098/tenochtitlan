@@ -54,7 +54,8 @@ export function createRenderer(canvas) {
         overlayEl.id = 'hud';
         overlayEl.style.position = 'fixed';
         overlayEl.style.top = '10px';
-        overlayEl.style.right = '10px';
+        overlayEl.style.left = '10px';
+        overlayEl.style.right = 'auto';
         overlayEl.style.zIndex = '1000';
         overlayEl.style.padding = '6px 10px';
         overlayEl.style.borderRadius = '8px';
