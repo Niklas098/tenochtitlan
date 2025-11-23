@@ -25,17 +25,13 @@ import {
   setPlacerActiveCamera,
   registerPlaceableObject
 } from '../ui/placer.js';
-import {
-  createTorchForCamera,
-  updateTorch
-} from '../scene/torch/torch.js';
-import {createFireEmitter, updateFireEmitters} from "../scene/torch/fireEmitters.js";
 import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
 import { createMountains } from '../scene/mountains/mountains.js';
 import { createWeather } from '../scene/weather/weather.js';
-import {createFireAndSmokeSystem} from "../scene/torch/fire.js";
 import { createHotspotManager } from '../scene/hotspots/hotspotManager.js';
 import { getHotspotDefinition } from '../scene/hotspots/hotspotContent.js';
+import {createFireSystem} from "../scene/fire/fire.js";
+import {initEgoTorch, setEgoTorchActive, updateEgoTorch} from "../scene/fire/torch.js";
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
@@ -69,6 +65,15 @@ async function init() {
   switchToCamera('drone');
 
   lights = createLights(scene);
+
+  scene.add(cameras.fp.camera);
+    initEgoTorch(cameras.fp.camera, {
+        url: '/models/Fackel_Empty.glb',
+        emptyName: 'TorchFirePoint',           // wie dein Empty im GLB heißt
+        fireTex: '/textures/fire.png',
+        intensity: 1000,
+        distance: 1000
+    });
 
   // Kleinere Map -> FP wirkt größer
   buildCity(scene, {
@@ -225,6 +230,11 @@ function animate() {
         fireFX.setEnabled(!isDaytime());
         fireFX.update(dt, t)
     });
+
+    // --- Ego-Fackel ---
+    const torchShouldBeOn = (type === 'fp') && !isDaytime();
+    setEgoTorchActive(torchShouldBeOn);
+    updateEgoTorch(dt, t);
 
   renderer.render(scene, cam);
 
