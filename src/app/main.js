@@ -43,10 +43,7 @@ let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterControl
 let placerActive = false;
 let fireSystems = [];
 
-init();
-animate();
-
-function init() {
+async function init() {
   scene = new THREE.Scene();
 
   const canvas = document.getElementById('app');
@@ -123,6 +120,8 @@ function init() {
     domElement: renderer.domElement,
     defaultEnabled: false
   });
+
+  await loadPlacementsAndSpawn();
 
   // 🔹 START-Zeit statt setDayNight(): 13:00 = Tag
   setTimeOfDay(13.0);
@@ -266,744 +265,27 @@ function onResize() {
   }
 }
 
-// Platzierbare Modelle kompakt im Array (leichter Offset für den Placer)
-const placerSpacing = 12;
-const placements = [
-  {
-    name: 'pyramide-01',
-    url: '/models/pyramide.glb',
-    position: { x: 0, y: 0, z: 0 },
-    rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
-    scale: 5
-  },
-  {
-    name: 'tempelgr-01',
-    url: '/models/Tempelgr.glb',
-    position: { x: placerSpacing, y: 0, z: 2 },
-    rotation: { x: 0, y: Math.PI * 0.3, z: 0 },
-    scale: 60
-  },
-  {
-    name: 'tempelgr-02',
-    url: '/models/Tempelgr.glb',
-    position: { x: -placerSpacing - 2, y: 0, z: placerSpacing * 0.7 },
-    rotation: { x: 0, y: -Math.PI * 0.25, z: 0 },
-    scale: 60
-  },
-  {
-    name: 'tempelkl-01',
-    url: '/models/Tempelkl.glb',
-    position: { x: 4, y: 0, z: placerSpacing + 2 },
-    rotation: { x: 0, y: 0.1, z: 0 },
-    scale: 3
-  },
-  {
-    name: 'tempelkl-02',
-    url: '/models/Tempelkl.glb',
-    position: { x: placerSpacing + 4, y: 0, z: placerSpacing + 4 },
-    rotation: { x: 0, y: -0.18, z: 0 },
-    scale: 3
-  },
-  {
-    name: 'tempelkl-03',
-    url: '/models/Tempelkl.glb',
-    position: { x: -placerSpacing + 2, y: 0, z: placerSpacing * 1.3 },
-    rotation: { x: 0, y: 0.22, z: 0 },
-    scale: 3
-  },
-  {
-    name: 'tempelkl-04',
-    url: '/models/Tempelkl.glb',
-    position: { x: placerSpacing * 1.6, y: 0, z: placerSpacing * 1.5 },
-    rotation: { x: 0, y: -0.12, z: 0 },
-    scale: 3
-  },
-  {
-    name: 'kirche-01',
-    url: '/models/Kirche.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'tempelgrex-01',
-    url: '/models/Tempelgrex.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'tempelgrex-02',
-    url: '/models/Tempelgrex.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'tempelgrex-03',
-    url: '/models/Tempelgrex.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'tempelgrex-04',
-    url: '/models/Tempelgrex.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'walllong-01',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-   {
-    name: 'walllong-02',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-03',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-04',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-05',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-06',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-07',
-    url: '/models/walllongentrance.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-08',
-    url: '/models/walllongentrance.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'cypress-01',
-    url: '/models/cypress.glb',
-    position: { x: -43.299045433618986, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-02',
-    url: '/models/cypress.glb',
-    position: { x: -23.299045433618986, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-03',
-    url: '/models/cypress.glb',
-    position: { x: -3.299045433618986, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-04',
-    url: '/models/cypress.glb',
-    position: { x: 16.700954566381014, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-05',
-    url: '/models/cypress.glb',
-    position: { x: 36.700954566381014, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-06',
-    url: '/models/cypress.glb',
-    position: { x: 56.700954566381014, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-07',
-    url: '/models/cypress.glb',
-    position: { x: 76.70095456638101, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-08',
-    url: '/models/cypress.glb',
-    position: { x: 96.70095456638101, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-09',
-    url: '/models/cypress.glb',
-    position: { x: 116.70095456638101, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-10',
-    url: '/models/cypress.glb',
-    position: { x: 136.700954566381, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-11',
-    url: '/models/cypress.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 0.5
-  },
-  {
-    name: 'cypress-12',
-    url: '/models/cypress.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-13',
-    url: '/models/cypress.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.2, z: 0 },
-    scale: 0.9
-  },
-  {
-    name: 'cypress-14',
-    url: '/models/cypress.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.5, z: 0 },
-    scale: 1.1
-  },
-  {
-    name: 'cypress-15',
-    url: '/models/cypress.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.4, z: 0 },
-    scale: 1.3
-  },
-  {
-    name: 'statue-01',
-    url: '/models/statue.glb',
-    position: { x: 3.1688799791706135, y: 6.662000001430513, z: -12.762688262803424 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'statue-02',
-    url: '/models/statue.glb',
-    position: { x: 39.44407997993355, y: 6.662000001430513, z: -12.762688262803424 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'agave-01',
-    url: '/models/agave.glb',
-    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'agave-02',
-    url: '/models/agave.glb',
-    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'agave-03',
-    url: '/models/agave.glb',
-    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'agave-04',
-    url: '/models/agave.glb',
-    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'agave-05',
-    url: '/models/agave.glb',
-    position: { x: 131.27151251886383, y: -0.3027999968528736, z: -56.40953695254785 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'agave-06',
-    url: '/models/agave.glb',
-    position: { x: 163.20672760709004, y: -0.3027999968528736, z: -168.802134769159 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'agave-07',
-    url: '/models/agave.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 4
-  },
-  {
-    name: 'agave-08',
-    url: '/models/agave.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.2, z: 0 },
-    scale: 5
-  },
-  {
-    name: 'agave-09',
-    url: '/models/agave.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.15, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'agave-10',
-    url: '/models/agave.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.35, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'agave-11',
-    url: '/models/agave.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.3, z: 0 },
-    scale: 8
-  },
-  {
-    name: 'totem-01',
-    url: '/models/totem.glb',
-    position: { x: -80, y: 0, z: -20 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'totem-02',
-    url: '/models/totem.glb',
-    position: { x: -40, y: 0, z: 20 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'totem-03',
-    url: '/models/totem.glb',
-    position: { x: 0, y: 0, z: -40 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'totem-04',
-    url: '/models/totem.glb',
-    position: { x: 40, y: 0, z: 20 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'totem-05',
-    url: '/models/totem.glb',
-    position: { x: 80, y: 0, z: -20 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'totem-06',
-    url: '/models/totem.glb',
-    position: { x: 0, y: 0, z: 60 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'dragontree-01',
-    url: '/models/dragontree.glb',
-    position: { x: -140, y: 0, z: -60 },
-    rotation: { x: 0, y: 0.4, z: 0 },
-    scale: 8
-  },
-  {
-    name: 'dragontree-02',
-    url: '/models/dragontree.glb',
-    position: { x: -60, y: 0, z: 120 },
-    rotation: { x: 0, y: -0.2, z: 0 },
-    scale: 8
-  },
-  {
-    name: 'dragontree-03',
-    url: '/models/dragontree.glb',
-    position: { x: 90, y: 0, z: -130 },
-    rotation: { x: 0, y: 0.1, z: 0 },
-    scale: 8
-  },
-  {
-    name: 'dragontree-04',
-    url: '/models/dragontree.glb',
-    position: { x: 140, y: 0, z: 80 },
-    rotation: { x: 0, y: -0.35, z: 0 },
-    scale: 8
-  },
-  {
-    name: 'cactus-01',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.15, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'cactus-02',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.1, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'cactus-03',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.25, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'cactus-04',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.3, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'cactus-05',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.05, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'cactus-06',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.2, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'cactus-07',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.1, z: 0 },
-    scale: 4
-  },
-  {
-    name: 'cactus-08',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.2, z: 0 },
-    scale: 5
-  },
-  {
-    name: 'cactus-09',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.25, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'cactus-10',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.35, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'cactus-11',
-    url: '/models/cactus.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.4, z: 0 },
-    scale: 8
-  },
-  {
-    name: 'buesche-01',
-    url: '/models/buesche.glb',
-    position: { x: -8, y: 6.662000001430513, z: -10 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-02',
-    url: '/models/buesche.glb',
-    position: { x: 48, y: 6.662000001430513, z: -10 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-03',
-    url: '/models/buesche.glb',
-    position: { x: 60, y: 6.662000001430513, z: -16 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-04',
-    url: '/models/buesche.glb',
-    position: { x: 62, y: 6.662000001430513, z: 2 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-05',
-    url: '/models/buesche.glb',
-    position: { x: 40, y: 6.662000001430513, z: 6 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-06',
-    url: '/models/buesche.glb',
-    position: { x: 34, y: 6.662000001430513, z: -12 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-07',
-    url: '/models/buesche.glb',
-    position: { x: 50, y: 6.662000001430513, z: -24 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-08',
-    url: '/models/buesche.glb',
-    position: { x: 66, y: 6.662000001430513, z: -6 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-09',
-    url: '/models/buesche.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 4
-  },
-  {
-    name: 'buesche-10',
-    url: '/models/buesche.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 6
-  },
-  {
-    name: 'buesche-11',
-    url: '/models/buesche.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.2, z: 0 },
-    scale: 7
-  },
-  {
-    name: 'buesche-12',
-    url: '/models/buesche.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: 0.5, z: 0 },
-    scale: 8
-  },
-  {
-    name: 'buesche-13',
-    url: '/models/buesche.glb',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0, y: -0.4, z: 0 },
-    scale: 9
-  },
-  {
-    name: 'bodenplatte-01',
-    url: '/models/Bodenplatte.glb',
-    position: { x: -placerSpacing, y: 0, z: -placerSpacing },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 1
-  }
-];
+const PLACEMENT_SOURCES = ['/api/placements', '/data/placements.json'];
 
-placements.forEach(({ url, name, position, rotation, scale, hitboxOptions }) => {
-  loadGLB(scene, {
-    url,
-    position,
-    rotation,
-    scale,
-    hitboxOptions,
-    onLoaded: (model) => registerPlaceableObject(model, name)
-  });
-});
+async function loadPlacementsAndSpawn() {
+  const placements = await loadPlacementsData();
+  Object.entries(placements).forEach(([name, data]) => {
+    if (!data || !data.url) return;
+    const position = toVec3(data.position, { x: 0, y: 0, z: 0 });
+    const rotation = toVec3(data.rotation, { x: 0, y: 0, z: 0 });
+    const scale = toScale(data.scale ?? 1);
+    const { hitboxOptions, emptyName, intensity = 1000, distance = 1000 } = data;
 
-const firesockelPlacements = [
-  {
-    name: 'firesockel-01',
-    position: { x: 144.81657660287223, y: 0.4634689266026015, z: -134.11907294843775 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-02',
-    position: { x: 31.484038578139305, y: 0.4634689266026015, z: -25.46168649816877 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-04',
-    position: { x: -109.80875742922568, y: 0.4634689266026015, z: -135.08176569400598 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-05',
-    position: { x: -110.46683210910636, y: 0.4634689266026015, z: -150.4100736012033 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-08',
-    position: { x: 8.221735509952115, y: 0.4634689266026015, z: -25.52296298302294 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-09',
-    position: { x: 144.4874789093707, y: 0.4634689266026015, z: -148.2096207219619 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-10',
-    position: { x: 8.151122320687037, y: 0.4634689266026015, z: 16.110733574976916 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-11',
-    position: { x: 31.447454285697535, y: 0.4634689266026015, z: 16.18053833141102 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-12',
-    position: { x: -3.401442691669369, y: 2.0680529045216254, z: -74.1941175343479 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-17',
-    position: { x: 31.588189228545474, y: 0.29191464172567094, z: -24.92221512894232 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-21',
-    position: { x: 92.44431656053484, y: 0.29191464172567094, z: -40.22381429848412 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-22',
-    position: { x: 49.50862176119965, y: 1.886839093664289, z: -73.85127017152683 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-25',
-    position: { x: -52.282797135651876, y: 0.4634689266026015, z: -39.6924451030262 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-26',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.5
-  },
-  {
-    name: 'firesockel-27',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.5
-  },
-  {
-    name: 'firesockel-28',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.5
-  },
-  {
-    name: 'firesockel-29',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.5
-  },
-  {
-    name: 'firesockel-30',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  },
-  {
-    name: 'firesockel-31',
-    position: { x: 20.318137529417722, y: 0, z: 62.026620231904154 },
-    rotation: { x: 0.04894751329300705, y: 0.612358676115454, z: -0.0031091478376245006 },
-    scale: 0.6
-  }
-];
-
-const placementsWithLights = firesockelPlacements.map(
-  ({ name, position, rotation, scale, hitboxOptions }) => ({
-    name,
-    url: '/models/Feuerschale_Empty.glb',
-    position,
-    rotation,
-    scale,
-    hitboxOptions,
-    emptyName: 'BowlFirePoint',
-    intensity: 1000,
-    distance: 1000
-  })
-);
-
-placementsWithLights.forEach(
-  ({ url, name, position, rotation, scale, hitboxOptions, emptyName, intensity, distance }) => {
     loadGLB(scene, {
-      url,
+      url: data.url,
       position,
       rotation,
       scale,
       hitboxOptions,
       onLoaded: (model) => {
         registerPlaceableObject(model, name);
+
+        if (!emptyName) return;
 
         let fireMarker = null;
         model.traverse((child) => {
@@ -1017,7 +299,6 @@ placementsWithLights.forEach(
           return;
         }
 
-        // Feuer-Emitter am Empty erstellen
         const fireFX = createFireAndSmokeSystem(
           fireMarker,
           'textures/fire.png',
@@ -1028,5 +309,43 @@ placementsWithLights.forEach(
         fireSystems.push(fireFX);
       }
     });
+  });
+}
+
+async function loadPlacementsData() {
+  for (const url of PLACEMENT_SOURCES) {
+    try {
+      const res = await fetch(url, { cache: 'no-cache' });
+      if (!res.ok) continue;
+      const json = await res.json().catch(() => null);
+      if (json && typeof json === 'object') return json;
+    } catch (err) {
+      console.warn('Placements laden fehlgeschlagen von', url, err);
+    }
   }
-);
+  console.warn('Keine Placements geladen, verwende leeres Layout.');
+  return {};
+}
+
+function toVec3(input, fallback) {
+  if (Array.isArray(input) && input.length === 3) {
+    return { x: Number(input[0]) || 0, y: Number(input[1]) || 0, z: Number(input[2]) || 0 };
+  }
+  if (input && typeof input === 'object' && 'x' in input && 'y' in input && 'z' in input) {
+    return { x: Number(input.x) || 0, y: Number(input.y) || 0, z: Number(input.z) || 0 };
+  }
+  return fallback;
+}
+
+function toScale(value) {
+  if (typeof value === 'number') return value;
+  if (Array.isArray(value) && value.length === 3) {
+    return { x: Number(value[0]) || 1, y: Number(value[1]) || 1, z: Number(value[2]) || 1 };
+  }
+  if (value && typeof value === 'object' && 'x' in value && 'y' in value && 'z' in value) {
+    return { x: Number(value.x) || 1, y: Number(value.y) || 1, z: Number(value.z) || 1 };
+  }
+  return 1;
+}
+
+init().then(() => animate());

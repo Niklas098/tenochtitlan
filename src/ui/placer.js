@@ -645,11 +645,15 @@ function persistTransform(object) {
   const id = object.userData?.placerId;
   if (!id) return;
   const data = captureTransform(object);
+  const existing = state.persistenceLoaded
+    ? (state.persistedTransforms.get(id) || {})
+    : (state.pendingTransforms.get(id) || {});
+  const merged = { ...existing, ...data };
   if (!state.persistenceLoaded) {
-    state.pendingTransforms.set(id, data);
+    state.pendingTransforms.set(id, merged);
     return;
   }
-  state.persistedTransforms.set(id, data);
+  state.persistedTransforms.set(id, merged);
   schedulePersistedSave();
 }
 
