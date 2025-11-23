@@ -1640,6 +1640,32 @@
       2
     ]
   },
+  "tempelkl-altar": {
+    "url": "/models/altar.glb",
+    "position": [
+      14.5,
+      0,
+      -50.761600000381456
+    ],
+    "rotation": [
+      0,
+      0.2,
+      0
+    ],
+    "scale": [
+      30,
+      30,
+      30
+    ],
+    "hotspot": {
+      "title": "Ritueller Altar",
+      "description": "Zentrale Opferplattform des zeremoniellen Viertels. Hier werden Opfergaben abgelegt und Feuer entzündet, um die Götter gnädig zu stimmen.",
+      "radius": 5,
+      "iconHeight": 4,
+      "glowStrength": 1.2,
+      "prompt": "E drücken, um mehr über den Altar zu lesen"
+    }
+  },
   "totem-01": {
     "url": "/models/totem.glb",
     "position": [

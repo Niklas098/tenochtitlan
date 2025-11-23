@@ -34,17 +34,19 @@ import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
 import { createMountains } from '../scene/mountains/mountains.js';
 import { createWeather } from '../scene/weather/weather.js';
 import {createFireAndSmokeSystem} from "../scene/torch/fire.js";
+import { createHotspotManager } from '../scene/hotspots/hotspotManager.js';
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
 const WATER_COLOR = new THREE.Color();
 
-let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather;
+let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather, hotspotManager;
 let placerActive = false;
 let fireSystems = [];
 
 async function init() {
   scene = new THREE.Scene();
+  hotspotManager = createHotspotManager(scene);
 
   const canvas = document.getElementById('app');
   if (!canvas) {
@@ -138,6 +140,12 @@ async function init() {
       const next = order[(cur+1) % order.length];
       switchToCamera(next);
     }
+    if (e.code === 'KeyE' && getActiveCameraType() === 'fp') {
+      if (hotspotManager?.handleInteract()) {
+        e.preventDefault();
+        return;
+      }
+    }
     if (e.code === 'KeyN') {
       // 🔹 Legacy-Shortcut bleibt: toggelt Tag/Nacht (intern Zeit ~13h / ~1h)
       const day = !isDaytime();
@@ -204,6 +212,7 @@ function animate() {
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
   updateTorch(dt);
+  hotspotManager?.update(dt, cam);
   weather?.update(dt, cam);
   if (waterController) {
     const daylight = getDaylightFactor();
@@ -284,6 +293,19 @@ async function loadPlacementsAndSpawn() {
       hitboxOptions,
       onLoaded: (model) => {
         registerPlaceableObject(model, name);
+
+        if (hotspotManager && data.hotspot) {
+          const hs = data.hotspot;
+          hotspotManager.addHotspot({
+            id: name,
+            anchor: model,
+            radius: hs.radius ?? 8,
+            height: hs.iconHeight ?? 4,
+            title: hs.title ?? name,
+            description: hs.description ?? '',
+            promptText: hs.prompt ?? 'Drücke E für Info'
+          });
+        }
 
         if (!emptyName) return;
 
