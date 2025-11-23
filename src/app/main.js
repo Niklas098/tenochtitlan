@@ -28,6 +28,8 @@ import {
 import { createWater, WATER_QUALITY } from '../scene/water/water2.js';
 import { createMountains } from '../scene/mountains/mountains.js';
 import { createWeather } from '../scene/weather/weather.js';
+import { createHotspotManager } from '../scene/hotspots/hotspotManager.js';
+import { getHotspotDefinition } from '../scene/hotspots/hotspotContent.js';
 import {createFireSystem} from "../scene/fire/fire.js";
 import {initEgoTorch, setEgoTorchActive, updateEgoTorch} from "../scene/fire/torch.js";
 
@@ -35,15 +37,13 @@ const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
 const WATER_COLOR = new THREE.Color();
 
-let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather;
+let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather, hotspotManager;
 let placerActive = false;
 let fireSystems = [];
 
-init();
-animate();
-
-function init() {
+async function init() {
   scene = new THREE.Scene();
+  hotspotManager = createHotspotManager(scene);
 
   const canvas = document.getElementById('app');
   if (!canvas) {
@@ -129,6 +129,8 @@ function init() {
     defaultEnabled: false
   });
 
+  await loadPlacementsAndSpawn();
+
   // 🔹 START-Zeit statt setDayNight(): 13:00 = Tag
   setTimeOfDay(13.0);
   showStars(false); // wird eh automatisch aus setTimeOfDay gesteuert
@@ -143,6 +145,12 @@ function init() {
       const cur = order.indexOf(getActiveCameraType());
       const next = order[(cur+1) % order.length];
       switchToCamera(next);
+    }
+    if (e.code === 'KeyE' && getActiveCameraType() === 'fp') {
+      if (hotspotManager?.handleInteract()) {
+        e.preventDefault();
+        return;
+      }
     }
     if (e.code === 'KeyN') {
       // 🔹 Legacy-Shortcut bleibt: toggelt Tag/Nacht (intern Zeit ~13h / ~1h)
@@ -209,6 +217,8 @@ function animate() {
 
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
+  updateTorch(dt);
+  hotspotManager?.update(dt, cam);
   weather?.update(dt, cam);
   if (waterController) {
     const daylight = getDaylightFactor();
@@ -275,309 +285,102 @@ function onResize() {
   }
 }
 
-// Platzierbare Modelle kompakt im Array (leichter Offset für den Placer)
-const placerSpacing = 12;
-const placements = [
-  {
-    name: 'pyramide-01',
-    url: '/models/pyramide.glb',
-    position: { x: 0, y: 0, z: 0 },
-    rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
-    scale: 50
-  },
-  {
-    name: 'tempelgr-01',
-    url: '/models/Tempelgr.glb',
-    position: { x: placerSpacing, y: 0, z: 2 },
-    rotation: { x: 0, y: Math.PI * 0.3, z: 0 },
-    scale: 60
-  },
-  {
-    name: 'tempelgr-02',
-    url: '/models/Tempelgr.glb',
-    position: { x: -placerSpacing - 2, y: 0, z: placerSpacing * 0.7 },
-    rotation: { x: 0, y: -Math.PI * 0.25, z: 0 },
-    scale: 60
-  },
-  {
-    name: 'tempelkl-01',
-    url: '/models/Tempelkl.glb',
-    position: { x: 4, y: 0, z: placerSpacing + 2 },
-    rotation: { x: 0, y: 0.1, z: 0 },
-    scale: 3
-  },
-  {
-    name: 'tempelkl-02',
-    url: '/models/Tempelkl.glb',
-    position: { x: placerSpacing + 4, y: 0, z: placerSpacing + 4 },
-    rotation: { x: 0, y: -0.18, z: 0 },
-    scale: 3
-  },
-  {
-    name: 'tempelkl-03',
-    url: '/models/Tempelkl.glb',
-    position: { x: -placerSpacing + 2, y: 0, z: placerSpacing * 1.3 },
-    rotation: { x: 0, y: 0.22, z: 0 },
-    scale: 3
-  },
-  {
-    name: 'tempelkl-04',
-    url: '/models/Tempelkl.glb',
-    position: { x: placerSpacing * 1.6, y: 0, z: placerSpacing * 1.5 },
-    rotation: { x: 0, y: -0.12, z: 0 },
-    scale: 3
-  },
-  {
-    name: 'kirche-01',
-    url: '/models/Kirche.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'tempelgrex-01',
-    url: '/models/Tempelgrex.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'tempelgrex-02',
-    url: '/models/Tempelgrex.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'tempelgrex-03',
-    url: '/models/Tempelgrex.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'tempelgrex-04',
-    url: '/models/Tempelgrex.glb',
-    position: { x: -4, y: 0, z: placerSpacing * 2 },
-    rotation: { x: 0, y: Math.PI * 0.12, z: 0 },
-    scale: 10
-  },
-  {
-    name: 'walllong-01',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-   {
-    name: 'walllong-02',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-03',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-04',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-05',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-06',
-    url: '/models/walllong.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-07',
-    url: '/models/walllongentrance.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'walllong-08',
-    url: '/models/walllongentrance.glb',
-    position: { x: 12, y: 0, z: -7.2 },
-    rotation: { x: 0, y: -0.25, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'cypress-01',
-    url: '/models/cypress.glb',
-    position: { x: -43.299045433618986, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-02',
-    url: '/models/cypress.glb',
-    position: { x: -23.299045433618986, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-03',
-    url: '/models/cypress.glb',
-    position: { x: -3.299045433618986, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-04',
-    url: '/models/cypress.glb',
-    position: { x: 16.700954566381014, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-05',
-    url: '/models/cypress.glb',
-    position: { x: 36.700954566381014, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-06',
-    url: '/models/cypress.glb',
-    position: { x: 56.700954566381014, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-07',
-    url: '/models/cypress.glb',
-    position: { x: 76.70095456638101, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-08',
-    url: '/models/cypress.glb',
-    position: { x: 96.70095456638101, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-09',
-    url: '/models/cypress.glb',
-    position: { x: 116.70095456638101, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'cypress-10',
-    url: '/models/cypress.glb',
-    position: { x: 136.700954566381, y: 0, z: 12.72533647339433 },
-    rotation: { x: 0, y: 0.3, z: 0 },
-    scale: 0.7
-  },
-  {
-    name: 'supercar-01',
-    url: '/models/supercar.glb',
-    position: { x: 50, y: 0, z: -30 },
-    rotation: { x: 0, y: Math.PI / 2, z: 0 },
-    scale: 1
-  },
-  {
-    name: 'bodenplatte-01',
-    url: '/models/Bodenplatte.glb',
-    position: { x: -placerSpacing, y: 0, z: -placerSpacing },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: 1
-  }
-];
+const PLACEMENT_SOURCES = ['/api/placements', '/data/placements.json'];
 
-placements.forEach(({ url, name, position, rotation, scale, hitboxOptions }) => {
-  loadGLB(scene, {
-    url,
-    position,
-    rotation,
-    scale,
-    hitboxOptions,
-    onLoaded: (model) => registerPlaceableObject(model, name)
-  });
-});
+async function loadPlacementsAndSpawn() {
+  const placements = await loadPlacementsData();
+  Object.entries(placements).forEach(([name, data]) => {
+    if (!data || !data.url) return;
+    const position = toVec3(data.position, { x: 0, y: 0, z: 0 });
+    const rotation = toVec3(data.rotation, { x: 0, y: 0, z: 0 });
+    const scale = toScale(data.scale ?? 1);
+    const { hitboxOptions, emptyName, intensity = 1000, distance = 1000 } = data;
 
-const placementsWithLights = [
-    {
-        name: 'firesockel-01',
-        url: '/models/Feuerschale_Empty.glb',
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
-        scale: 0.6,
-        emptyName: 'BowlFirePoint',
-        intensity: 1000,
-        distance: 1000
-    },
-    {
-        name: 'firesockel-02',
-        url: '/models/Feuerschale_Empty.glb',
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
-        scale: 0.6,
-        emptyName: 'BowlFirePoint',
-        intensity: 1000,
-        distance: 1000
-    },
-    {
-        name: 'firesockel-03',
-        url: '/models/Feuerschale_Empty.glb',
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: Math.PI * 0.2, z: 0 },
-        scale: 0.6,
-        emptyName: 'BowlFirePoint',
-        intensity: 1000,
-        distance: 1000
-    }
-]
+    loadGLB(scene, {
+      url: data.url,
+      position,
+      rotation,
+      scale,
+      hitboxOptions,
+      onLoaded: (model) => {
+        registerPlaceableObject(model, name);
 
-    placementsWithLights.forEach(({ url, name, position, rotation, scale, hitboxOptions, emptyName, intensity, distance}) => {
-        loadGLB(scene, {
-            url,
-            position,
-            rotation,
-            scale,
-            hitboxOptions,
-            onLoaded: (model) => {
-                registerPlaceableObject(model, name);
+        const hotspotConfig = data.hotspot ?? getHotspotDefinition(name);
+        if (hotspotManager && hotspotConfig) {
+          const hs = hotspotConfig;
+          hotspotManager.addHotspot({
+            id: name,
+            anchor: model,
+            radius: hs.radius ?? 8,
+            height: hs.iconHeight ?? hs.height ?? 4,
+            glowStrength: hs.glowStrength ?? 1,
+            title: hs.title ?? name,
+            description: hs.description ?? '',
+            promptText: hs.prompt ?? 'Drücke E für Info'
+          });
+        }
 
-                let fireMarker = null;
-                model.traverse((child) => {
-                    if (child.name === emptyName) {
-                        fireMarker = child;
-                    }
-                });
+        if (!emptyName) return;
 
-                if (!fireMarker) {
-                    console.warn('Kein Fire-Empty im Sockel gefunden!');
-                    return;
-                }
+        let fireMarker = null;
+        model.traverse((child) => {
+          if (child.name === emptyName) {
+            fireMarker = child;
+          }
+        });
 
-                // Feuer-Emitter am Empty erstellen
-                const fireFX = createFireSystem(
-                    fireMarker,
-                    "textures/fire.png",
-                    intensity,
-                    distance
-                )
-                fireSystems.push(fireFX)
-            }
+        if (!fireMarker) {
+          console.warn('Kein Fire-Empty im Sockel gefunden!');
+          return;
+        }
+
+        const fireFX = createFireAndSmokeSystem(
+          fireMarker,
+          'textures/fire.png',
+          'textures/smoke.png',
+          intensity,
+          distance
+        );
+        fireSystems.push(fireFX);
+      }
     });
-});
+  });
+}
+
+async function loadPlacementsData() {
+  for (const url of PLACEMENT_SOURCES) {
+    try {
+      const res = await fetch(url, { cache: 'no-cache' });
+      if (!res.ok) continue;
+      const json = await res.json().catch(() => null);
+      if (json && typeof json === 'object') return json;
+    } catch (err) {
+      console.warn('Placements laden fehlgeschlagen von', url, err);
+    }
+  }
+  console.warn('Keine Placements geladen, verwende leeres Layout.');
+  return {};
+}
+
+function toVec3(input, fallback) {
+  if (Array.isArray(input) && input.length === 3) {
+    return { x: Number(input[0]) || 0, y: Number(input[1]) || 0, z: Number(input[2]) || 0 };
+  }
+  if (input && typeof input === 'object' && 'x' in input && 'y' in input && 'z' in input) {
+    return { x: Number(input.x) || 0, y: Number(input.y) || 0, z: Number(input.z) || 0 };
+  }
+  return fallback;
+}
+
+function toScale(value) {
+  if (typeof value === 'number') return value;
+  if (Array.isArray(value) && value.length === 3) {
+    return { x: Number(value[0]) || 1, y: Number(value[1]) || 1, z: Number(value[2]) || 1 };
+  }
+  if (value && typeof value === 'object' && 'x' in value && 'y' in value && 'z' in value) {
+    return { x: Number(value.x) || 1, y: Number(value.y) || 1, z: Number(value.z) || 1 };
+  }
+  return 1;
+}
+
+init().then(() => animate());
