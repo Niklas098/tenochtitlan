@@ -1460,6 +1460,42 @@
       9
     ]
   },
+  "statue-altar": {
+    "url": "/models/altar.glb",
+    "position": [
+      39.22016774345744,
+      0,
+      -13.44154133475947
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": [
+      22,
+      22,
+      22
+    ]
+  },
+  "feuerschale-altar": {
+    "url": "/models/altar.glb",
+    "position": [
+      8.3,
+      0,
+      20.2
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": [
+      18,
+      18,
+      18
+    ]
+  },
   "tempelgr-01": {
     "url": "/models/Tempelgr.glb",
     "position": [
@@ -1643,28 +1679,56 @@
   "tempelkl-altar": {
     "url": "/models/altar.glb",
     "position": [
-      14.5,
+      -43.181877642617195,
       0,
-      -50.761600000381456
+      -120.68764943968863
     ],
     "rotation": [
       0,
-      0.2,
+      3.141592653589793,
       0
     ],
     "scale": [
       30,
       30,
       30
+    ]
+  },
+  "tempelgr-altar": {
+    "url": "/models/altar.glb",
+    "position": [
+      21.795426010924317,
+      0.09583135484699634,
+      -151.30749915654783
     ],
-    "hotspot": {
-      "title": "Ritueller Altar",
-      "description": "Zentrale Opferplattform des zeremoniellen Viertels. Hier werden Opfergaben abgelegt und Feuer entzündet, um die Götter gnädig zu stimmen.",
-      "radius": 5,
-      "iconHeight": 4,
-      "glowStrength": 1.2,
-      "prompt": "E drücken, um mehr über den Altar zu lesen"
-    }
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": [
+      30,
+      30,
+      30
+    ]
+  },
+  "kirche-altar": {
+    "url": "/models/altar.glb",
+    "position": [
+      21.9,
+      0,
+      -122.25307782931323
+    ],
+    "rotation": [
+      0,
+      3.141592653589793,
+      0
+    ],
+    "scale": [
+      26,
+      26,
+      26
+    ]
   },
   "totem-01": {
     "url": "/models/totem.glb",

@@ -35,6 +35,7 @@ import { createMountains } from '../scene/mountains/mountains.js';
 import { createWeather } from '../scene/weather/weather.js';
 import {createFireAndSmokeSystem} from "../scene/torch/fire.js";
 import { createHotspotManager } from '../scene/hotspots/hotspotManager.js';
+import { getHotspotDefinition } from '../scene/hotspots/hotspotContent.js';
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
@@ -294,13 +295,15 @@ async function loadPlacementsAndSpawn() {
       onLoaded: (model) => {
         registerPlaceableObject(model, name);
 
-        if (hotspotManager && data.hotspot) {
-          const hs = data.hotspot;
+        const hotspotConfig = data.hotspot ?? getHotspotDefinition(name);
+        if (hotspotManager && hotspotConfig) {
+          const hs = hotspotConfig;
           hotspotManager.addHotspot({
             id: name,
             anchor: model,
             radius: hs.radius ?? 8,
-            height: hs.iconHeight ?? 4,
+            height: hs.iconHeight ?? hs.height ?? 4,
+            glowStrength: hs.glowStrength ?? 1,
             title: hs.title ?? name,
             description: hs.description ?? '',
             promptText: hs.prompt ?? 'Drücke E für Info'
