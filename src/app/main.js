@@ -217,7 +217,6 @@ function animate() {
 
   setPlacerActiveCamera(cam);
   updatePlacer(dt);
-  updateTorch(dt);
   hotspotManager?.update(dt, cam);
   weather?.update(dt, cam);
   if (waterController) {
@@ -334,10 +333,9 @@ async function loadPlacementsAndSpawn() {
           return;
         }
 
-        const fireFX = createFireAndSmokeSystem(
+        const fireFX = createFireSystem(
           fireMarker,
           'textures/fire.png',
-          'textures/smoke.png',
           intensity,
           distance
         );
