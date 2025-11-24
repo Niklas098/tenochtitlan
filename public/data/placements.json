@@ -198,7 +198,7 @@
     ]
   },
   "bodenplatte-01": {
-    "url": "/models/Bodenplatte.glb",
+    "url": "/models/bodenplatte.glb",
     "position": [
       21.992828483502496,
       -12.6,
@@ -990,7 +990,7 @@
     ]
   },
   "firesockel-01": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       144.81657660287223,
       0.4634689266026015,
@@ -1011,7 +1011,7 @@
     "distance": 1000
   },
   "firesockel-02": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       31.484038578139305,
       0.4634689266026015,
@@ -1032,7 +1032,7 @@
     "distance": 1000
   },
   "firesockel-04": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       -109.80875742922568,
       0.4634689266026015,
@@ -1053,7 +1053,7 @@
     "distance": 1000
   },
   "firesockel-05": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       -110.46683210910636,
       0.4634689266026015,
@@ -1074,7 +1074,7 @@
     "distance": 1000
   },
   "firesockel-08": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       8.221735509952115,
       0.4634689266026015,
@@ -1095,7 +1095,7 @@
     "distance": 1000
   },
   "firesockel-09": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       144.4874789093707,
       0.4634689266026015,
@@ -1116,7 +1116,7 @@
     "distance": 1000
   },
   "firesockel-10": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       8.151122320687037,
       0.4634689266026015,
@@ -1137,7 +1137,7 @@
     "distance": 1000
   },
   "firesockel-11": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       31.447454285697535,
       0.4634689266026015,
@@ -1158,7 +1158,7 @@
     "distance": 1000
   },
   "firesockel-12": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       -3.401442691669369,
       2.0680529045216254,
@@ -1179,7 +1179,7 @@
     "distance": 1000
   },
   "firesockel-21": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       92.44431656053484,
       0.29191464172567094,
@@ -1200,7 +1200,7 @@
     "distance": 1000
   },
   "firesockel-22": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       49.50862176119965,
       1.886839093664289,
@@ -1221,7 +1221,7 @@
     "distance": 1000
   },
   "firesockel-25": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       -52.282797135651876,
       0.4634689266026015,
@@ -1242,7 +1242,7 @@
     "distance": 1000
   },
   "firesockel-26": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       150.65922665581385,
       22.492223178620463,
@@ -1263,7 +1263,7 @@
     "distance": 1000
   },
   "firesockel-27": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       -107.56800906823928,
       22.407670581707006,
@@ -1284,7 +1284,7 @@
     "distance": 1000
   },
   "firesockel-28": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       87.15893903676051,
       22.125027385502026,
@@ -1305,7 +1305,7 @@
     "distance": 1000
   },
   "firesockel-29": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       -44.66961452592433,
       22.32655283082281,
@@ -1326,7 +1326,7 @@
     "distance": 1000
   },
   "firesockel-30": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       58.18289890769023,
       13.623376450715455,
@@ -1347,7 +1347,7 @@
     "distance": 1000
   },
   "firesockel-31": {
-    "url": "/models/Feuerschale_Empty.glb",
+    "url": "/models/feuerschaleEmpty.glb",
     "position": [
       -16.738027044338374,
       13.86711777026305,
@@ -1368,7 +1368,7 @@
     "distance": 1000
   },
   "kirche-01": {
-    "url": "/models/Kirche.glb",
+    "url": "/models/kirche.glb",
     "position": [
       21.970792429177852,
       0,
@@ -1476,7 +1476,7 @@
     ]
   },
   "tempelgr-01": {
-    "url": "/models/Tempelgr.glb",
+    "url": "/models/tempelgr.glb",
     "position": [
       101.2007408637829,
       0,
@@ -1494,7 +1494,7 @@
     ]
   },
   "tempelgr-02": {
-    "url": "/models/Tempelgr.glb",
+    "url": "/models/tempelgr.glb",
     "position": [
       -55.062561907158354,
       0,
@@ -1512,7 +1512,7 @@
     ]
   },
   "tempelgrex-01": {
-    "url": "/models/Tempelgrex.glb",
+    "url": "/models/tempelgrex.glb",
     "position": [
       -93.285057721533,
       -2.8387788241326732,
@@ -1530,7 +1530,7 @@
     ]
   },
   "tempelgrex-02": {
-    "url": "/models/Tempelgrex.glb",
+    "url": "/models/tempelgrex.glb",
     "position": [
       -41.9447535533771,
       -2.8387788241326732,
@@ -1548,7 +1548,7 @@
     ]
   },
   "tempelgrex-03": {
-    "url": "/models/Tempelgrex.glb",
+    "url": "/models/tempelgrex.glb",
     "position": [
       158.62537531507218,
       -4.12812133250168,
@@ -1566,7 +1566,7 @@
     ]
   },
   "tempelgrex-04": {
-    "url": "/models/Tempelgrex.glb",
+    "url": "/models/tempelgrex.glb",
     "position": [
       105.66941005549482,
       -2.8387788241326732,
@@ -1584,7 +1584,7 @@
     ]
   },
   "tempelkl-01": {
-    "url": "/models/Tempelkl.glb",
+    "url": "/models/tempelkl.glb",
     "position": [
       -105.84928008718782,
       0,
@@ -1602,7 +1602,7 @@
     ]
   },
   "tempelkl-02": {
-    "url": "/models/Tempelkl.glb",
+    "url": "/models/tempelkl.glb",
     "position": [
       88.77088586084975,
       -0.0851226945090543,
@@ -1620,7 +1620,7 @@
     ]
   },
   "tempelkl-03": {
-    "url": "/models/Tempelkl.glb",
+    "url": "/models/tempelkl.glb",
     "position": [
       152.2475748547202,
       -0.17045927643775938,
@@ -1638,7 +1638,7 @@
     ]
   },
   "tempelkl-04": {
-    "url": "/models/Tempelkl.glb",
+    "url": "/models/tempelkl.glb",
     "position": [
       -43.08551758378481,
       0.11995785216752441,

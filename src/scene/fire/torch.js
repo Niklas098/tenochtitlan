@@ -10,14 +10,14 @@ let torchActive = false;
  * Attaches a torch model with fire FX to the first-person camera.
  * @param {THREE.Camera} fpCamera - First-person camera used as parent.
  * @param {Object} [options]
- * @param {string} [options.url='/models/Fackel_Empty.glb'] - Torch GLB path.
+ * @param {string} [options.url='/models/fackelEmpty.glb'] - Torch GLB path.
  * @param {string} [options.emptyName='TorchFirePoint'] - Empty name inside the GLB used as fire anchor.
  * @param {string} [options.fireTex='/textures/fire.png'] - Flame texture path.
  * @param {number} [options.intensity=500] - Base light intensity.
  * @param {number} [options.distance=500] - Light range.
  */
 export function initEgoTorch(fpCamera, {
-    url= '/models/Fackel_Empty.glb',
+    url= '/models/fackelEmpty.glb',
     emptyName= 'TorchFirePoint',
     fireTex= '/textures/fire.png',
     intensity= 500,

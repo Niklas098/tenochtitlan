@@ -72,7 +72,7 @@ async function init() {
 
   scene.add(cameras.fp.camera);
     initEgoTorch(cameras.fp.camera, {
-        url: '/models/Fackel_Empty.glb',
+        url: '/models/fackelEmpty.glb',
         emptyName: 'TorchFirePoint',
         fireTex: '/textures/fire.png',
         intensity: 1000,
@@ -80,7 +80,7 @@ async function init() {
     });
 
   buildCity(scene, {
-    groundSize: 3000,
+    groundSize: 1750,
     water: {
       sunLight: lights.sun,
       reflectionIgnore: lights.starField

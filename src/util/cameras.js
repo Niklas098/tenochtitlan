@@ -6,6 +6,10 @@ let active = 'drone';
 let onCameraSwitch = null;
 const FP_BASE_HEIGHT = 1.85;
 const SWITCH_TMP = new THREE.Vector3();
+const ORBIT_START_POS = new THREE.Vector3(180, 140, 220);
+const ORBIT_START_TARGET = new THREE.Vector3(0, 10, 0);
+const ORBIT_MIN_DISTANCE = 60;
+const ORBIT_MAX_DISTANCE = 1320;
 
 /**
  * Builds orbit, drone, and first-person cameras and returns update callbacks.
@@ -17,13 +21,16 @@ export function createCameras(renderer, canvas, options = {}) {
     const aspect = window.innerWidth / window.innerHeight;
 
     const orbitCam = new THREE.PerspectiveCamera(60, aspect, 0.1, 9000);
-    orbitCam.position.set(180, 140, 220);
+    orbitCam.position.copy(ORBIT_START_POS);
     const orbit = new OrbitControls(orbitCam, renderer.domElement);
     orbit.enableDamping = true;
     orbit.dampingFactor = 0.08;
     orbit.screenSpacePanning = true;
+    orbit.minDistance = ORBIT_MIN_DISTANCE;
+    orbit.maxDistance = ORBIT_MAX_DISTANCE;
     orbit.maxPolarAngle = Math.PI * 0.49;
-    orbit.target.set(0,10,0);
+    orbit.target.copy(ORBIT_START_TARGET);
+    orbit.saveState();
     function updateOrbit() { if (active === 'orbit') orbit.update(); }
 
     const conf = Object.assign(
@@ -181,6 +188,10 @@ export function createCameras(renderer, canvas, options = {}) {
 
     onCameraSwitch = (prev, next) => {
         if (prev === next) return;
+        if (next === 'orbit') {
+            orbit.reset();
+            orbit.update();
+        }
         if (next === 'fp') {
             SWITCH_TMP.set(drone.position.x, FP_BASE_HEIGHT, drone.position.z);
             const safe = findSafeSpawnPosition(SWITCH_TMP);
