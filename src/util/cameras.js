@@ -1,17 +1,21 @@
-// src/util/cameras.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { isInsideAnyHitbox, findSafeSpawnPosition } from './collision.js';
 
 let active = 'drone';
 let onCameraSwitch = null;
-const FP_BASE_HEIGHT = 1.85;          // "Boden" / Augenhöhe
+const FP_BASE_HEIGHT = 1.85;
 const SWITCH_TMP = new THREE.Vector3();
 
+/**
+ * Builds orbit, drone, and first-person cameras and returns update callbacks.
+ * @param {THREE.WebGLRenderer} renderer
+ * @param {HTMLCanvasElement} canvas
+ * @param {{drone?:{flySpeed?:number,height?:number,minHeight?:number,maxHeight?:number,turbo?:number}}} [options]
+ */
 export function createCameras(renderer, canvas, options = {}) {
     const aspect = window.innerWidth / window.innerHeight;
 
-    // ===== ORBIT =====
     const orbitCam = new THREE.PerspectiveCamera(60, aspect, 0.1, 9000);
     orbitCam.position.set(180, 140, 220);
     const orbit = new OrbitControls(orbitCam, renderer.domElement);
@@ -22,7 +26,6 @@ export function createCameras(renderer, canvas, options = {}) {
     orbit.target.set(0,10,0);
     function updateOrbit() { if (active === 'orbit') orbit.update(); }
 
-    // ===== DRONE =====
     const conf = Object.assign(
         { flySpeed: 32, height: 120, minHeight: 25, maxHeight: 350, turbo: 1.8 },
         options.drone || {}
@@ -100,16 +103,14 @@ export function createCameras(renderer, canvas, options = {}) {
 
     function resetHeight() { drone.position.y = conf.height; }
 
-    // ===== FP (Ego) =====
-    // längere Sichtweite nötig, damit die fernen Berge im Ego-Modus nicht ausgeclippt werden
     const fp = new THREE.PerspectiveCamera(70, aspect, 0.05, 15000);
     fp.position.set(0, FP_BASE_HEIGHT, 3.2);
 
     const kfp = { w:false, a:false, s:false, d:false, locked:false, jumping:false };
     let yawF=0, pitchF=0;
-    let fpVelY = 0;                       // vertikale Geschwindigkeit
-    const GRAVITY = -24;                  // m/s^2 ungefähr
-    const JUMP_SPEED = 9.5;               // Sprung-Impuls
+    let fpVelY = 0;
+    const GRAVITY = -24;
+    const JUMP_SPEED = 9.5;
 
     const onKeyFp = (e, down) => {
         if (e.code === 'KeyW') kfp.w = down;
@@ -117,9 +118,7 @@ export function createCameras(renderer, canvas, options = {}) {
         if (e.code === 'KeyS') kfp.s = down;
         if (e.code === 'KeyD') kfp.d = down;
 
-        // springen
         if (e.code === 'Space' && down) {
-            // nur springen, wenn wir auf dem Boden sind
             if (Math.abs(fp.position.y - FP_BASE_HEIGHT) < 0.001) {
                 fpVelY = JUMP_SPEED;
                 kfp.jumping = true;
@@ -147,9 +146,7 @@ export function createCameras(renderer, canvas, options = {}) {
     function updateFp(dt) {
         if (active!=='fp') return;
 
-        // horizontale Bewegung
         const dir = new THREE.Vector3();
-        // W/S waren vertauscht → nun korrekt
         if (kfp.w) dir.z += 1;
         if (kfp.s) dir.z -= 1;
         if (kfp.a) dir.x -= 1;
@@ -172,11 +169,9 @@ export function createCameras(renderer, canvas, options = {}) {
             }
         }
 
-        // vertikale Bewegung (Sprung + Gravitation)
-        fpVelY += GRAVITY * dt;                       // Gravitation anwenden
-        fp.position.y += fpVelY * dt;                 // vertikale Position updaten
+        fpVelY += GRAVITY * dt;
+        fp.position.y += fpVelY * dt;
 
-        // Boden-Kollision
         if (fp.position.y < FP_BASE_HEIGHT) {
             fp.position.y = FP_BASE_HEIGHT;
             fpVelY = 0;

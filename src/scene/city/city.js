@@ -1,4 +1,3 @@
-// src/scene/city/city.js
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -10,9 +9,14 @@ import {
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
-// -----------------------------------------------------------------------------
-// Wireframe Debug
-// -----------------------------------------------------------------------------
+/**
+ * Adds a thin wireframe helper around a geometry for debugging.
+ * @param {THREE.Scene} scene
+ * @param {THREE.BufferGeometry} geometry
+ * @param {number} [opacity=0.18]
+ * @param {number} [color=0x00ffff]
+ * @returns {THREE.LineSegments}
+ */
 function addWireframeHelperForGeometry(scene, geometry, opacity = 0.18, color = 0x00ffff) {
   const wireGeo = new THREE.WireframeGeometry(geometry);
   const wireMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity });
@@ -21,9 +25,12 @@ function addWireframeHelperForGeometry(scene, geometry, opacity = 0.18, color = 
   return wire;
 }
 
-// -----------------------------------------------------------------------------
-// Micro–displacement ground noise (fine noise)
-// -----------------------------------------------------------------------------
+/**
+ * Applies small-scale noise to ground geometry for subtle variation.
+ * @param {THREE.BufferGeometry} geo
+ * @param {number} [amount=0.12]
+ * @param {number} [scale=0.0035]
+ */
 function displaceGroundGeometry(geo, amount = 0.12, scale = 0.0035) {
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
@@ -37,9 +44,12 @@ function displaceGroundGeometry(geo, amount = 0.12, scale = 0.0035) {
   geo.computeVertexNormals();
 }
 
-// -----------------------------------------------------------------------------
-// MAIN TALFORM FIX – smooth & natural falloff (no steps, no rings)
-// -----------------------------------------------------------------------------
+/**
+ * Sculpts a natural bowl shape into the terrain using concentric falloffs and noise.
+ * @param {THREE.BufferGeometry} geo
+ * @param {number} size
+ * @param {Object} [options]
+ */
 function sculptGroundBasin(geo, size, options = {}) {
   if (!geo?.attributes?.position) return;
 
@@ -63,11 +73,10 @@ function sculptGroundBasin(geo, size, options = {}) {
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
-    const baseY = pos.getY(i); // original height
+    const baseY = pos.getY(i);
     const angle = Math.atan2(z, x);
     const radius = Math.sqrt(x * x + z * z);
 
-    // coastal irregularity
     const angularNoise =
       Math.sin(angle * angularNoiseFrequency + seed * 0.73) *
         angularNoiseAmplitude * halfSize +
@@ -77,10 +86,8 @@ function sculptGroundBasin(geo, size, options = {}) {
     const plateauLocal = plateauRadius * halfSize + angularNoise * 0.35;
     const dropLocal = dropRadius * halfSize + angularNoise;
 
-    // inside plateau = keep original smooth inner height
     if (radius <= plateauLocal) continue;
 
-    // smooth falloff between plateau → drop zone
     const falloff = clamp01((radius - plateauLocal) / Math.max(1e-5, dropLocal - plateauLocal));
     const smoothFalloff = falloff * falloff * (3 - 2 * falloff);
     const slope = Math.pow(smoothFalloff, slopeExponent);
@@ -98,7 +105,6 @@ function sculptGroundBasin(geo, size, options = {}) {
       (1.0 - smoothFalloff) *
       10.0;
 
-    // softer: relative downward shift (NO ABSOLUTE Y)
     pos.setY(i, baseY - drop - baseNoiseVal - ridge);
   }
 
@@ -106,9 +112,12 @@ function sculptGroundBasin(geo, size, options = {}) {
   geo.computeVertexNormals();
 }
 
-// -----------------------------------------------------------------------------
-// flatten center area (only very mild smoothing)
-// -----------------------------------------------------------------------------
+/**
+ * Flattens the center area for the city plateau with a smooth blend region.
+ * @param {THREE.BufferGeometry} geo
+ * @param {number} size
+ * @param {{radius?:number, blend?:number, height?:number}} [options]
+ */
 function flattenInnerPlateau(geo, size, options = {}) {
   const { radius = 0.58, blend = 0.12, height = 0 } = options;
   const pos = geo.attributes.position;
@@ -139,16 +148,12 @@ function flattenInnerPlateau(geo, size, options = {}) {
   geo.computeVertexNormals();
 }
 
-// -----------------------------------------------------------------------------
-// Build world
-// -----------------------------------------------------------------------------
 export function buildCity(scene, {
-  groundSize = 5200,   // ← deutlich größere Bodenplatte
+  groundSize = 5200,
   groundRepeat = 500,
   water = {}
 } = {}) {
 
-  // Wasser-Konfiguration
   let shorelineSampler = null;
   let waterOptions = null;
 
@@ -176,7 +181,7 @@ export function buildCity(scene, {
     waterOptions = {
       scene,
       size: waterSize,
-      height: -120,               // ← Wasser deutlich tiefer
+      height: -120,
       segments: 96,
       sunLight: null,
       lakeRadius: groundSize * 0.42,
@@ -200,15 +205,12 @@ export function buildCity(scene, {
     waterOptions.shoreSampler = shorelineSampler;
   }
 
-  // ---------------------------------------------------------------------------
-  // Ground mesh
-  // ---------------------------------------------------------------------------
   const seg = 256;
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, seg, seg);
   groundGeo.rotateX(-Math.PI / 2);
 
-  displaceGroundGeometry(groundGeo, 0.08, 0.003);   // micro noise
-  sculptGroundBasin(groundGeo, groundSize, {       // smooth natural bowl
+  displaceGroundGeometry(groundGeo, 0.08, 0.003);
+  sculptGroundBasin(groundGeo, groundSize, {
     plateauRadius: 0.7,
     dropRadius: 0.96,
     edgeDrop: 280,
@@ -222,7 +224,6 @@ export function buildCity(scene, {
     seed: 2.6
   });
 
-  // optional: natural coastline heatmap
   if (shorelineSampler) {
     sculptGroundWithShoreHeatmap(groundGeo, shorelineSampler, {
       rimHeight: 18,
@@ -234,7 +235,6 @@ export function buildCity(scene, {
     });
   }
 
-  // flatten center for the city
   flattenInnerPlateau(groundGeo, groundSize, {
     radius: 0.58,
     blend: 0.12,
@@ -261,14 +261,8 @@ export function buildCity(scene, {
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.receiveShadow = true;
   scene.add(ground);
-
-
-  // Water surface is now created via the dedicated Water2 module (see src/scene/water/water2.js).
 }
 
-// -----------------------------------------------------------------------------
-// GLB Loading
-// -----------------------------------------------------------------------------
 const gltfLoader = new GLTFLoader();
 const gltfCache = new Map();
 
@@ -317,7 +311,6 @@ export function loadGLB(
 
       scene.add(model);
 
-      // align bottom
       let box = new THREE.Box3().setFromObject(model);
       const dy = -box.min.y;
       if (Math.abs(dy) > 1e-4) model.position.y += dy;

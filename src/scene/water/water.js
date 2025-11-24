@@ -1,5 +1,3 @@
-// src/scene/water/water.js
-// Utility helpers for shaping shoreline geometry around the city plateau.
 import * as THREE from 'three';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));

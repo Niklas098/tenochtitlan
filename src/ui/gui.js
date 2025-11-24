@@ -1,4 +1,3 @@
-// src/ui/gui.js
 import {
   setTimeOfDay,
   getHours,
@@ -20,6 +19,14 @@ const WATER_OPTIONS = [
 
 let stylesInjected = false;
 
+/**
+ * Builds the in-page control HUD for camera, time of day, water quality, weather, and exposure.
+ * @param {import('three').WebGLRenderer} renderer
+ * @param {{orbit:Object,drone:Object,fp:Object}} cameras
+ * @param {Object} lights
+ * @param {{water?:Object, weather?:Object}} [hooks]
+ * @returns {{element:HTMLElement, destroy:Function}}
+ */
 export default function createGUI(renderer, cameras, lights, hooks = {}) {
   injectStyles();
   const root = document.createElement('section');
@@ -34,7 +41,6 @@ export default function createGUI(renderer, cameras, lights, hooks = {}) {
     stars: areStarsVisible()
   };
 
-  // -- Ansicht & Kamera
   const viewCard = createCard('Ansicht & Kamera');
   const camGroup = createButtonRow([
     { id: 'orbit', label: 'Orbit' },
@@ -61,7 +67,6 @@ export default function createGUI(renderer, cameras, lights, hooks = {}) {
   viewCard.body.appendChild(exposureControl);
   root.appendChild(viewCard.card);
 
-  // -- Zeit & Himmel
   const timeCard = createCard('Zeit & Himmel');
   const timeDisplay = document.createElement('div');
   timeDisplay.className = 'hud-info-text';
@@ -147,7 +152,6 @@ export default function createGUI(renderer, cameras, lights, hooks = {}) {
   timeCard.body.appendChild(starToggle);
   root.appendChild(timeCard.card);
 
-  // -- Bewegung (Drone)
   const moveCard = createCard('Bewegung (Drone)');
   moveCard.body.appendChild(createSliderControl({
     label: 'Geschwindigkeit',
@@ -188,7 +192,6 @@ export default function createGUI(renderer, cameras, lights, hooks = {}) {
   moveCard.body.appendChild(createActionButton('Höhe reset', () => cameras.drone.resetHeight()));
   root.appendChild(moveCard.card);
 
-  // -- Performance & Qualität
   const perfCard = createCard('Performance & Qualität');
   perfCard.body.appendChild(createSliderControl({
     label: 'Pixel Ratio Max',
@@ -217,7 +220,6 @@ export default function createGUI(renderer, cameras, lights, hooks = {}) {
   }
   root.appendChild(perfCard.card);
 
-  // -- Wetter
   if (hooks.weather) {
     const weatherCard = createCard('Wetter');
     const fogToggle = createToggleControl('Nebel', hooks.weather.isFogEnabled?.() ?? false, (value) => hooks.weather.setFogEnabled?.(value));
@@ -229,7 +231,6 @@ export default function createGUI(renderer, cameras, lights, hooks = {}) {
 
   document.body.appendChild(root);
 
-  // keep slider synced with actual time (e.g. via keyboard)
   function syncLoop() {
     const currentHours = normalizeHours(getHours());
     if (Math.abs(currentHours - state.hours) > 1e-3) {

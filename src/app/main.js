@@ -1,15 +1,13 @@
-// src/app/main.js
 import * as THREE from 'three';
 import { createRenderer } from '../util/renderer.js';
 import { createCameras, switchToCamera, getActiveCameraType } from '../util/cameras.js';
 import { toggleHitboxVisibility, findSafeSpawnPosition } from '../util/collision.js';
 import {
   createLights,
-  setDayNight,          // legacy toggle bleibt nutzbar (mappt auf Zeit)
+  setDayNight,
   updateSun,
   isDaytime,
   showStars,
-  // 🔹 NEU: Zeitsteuerung (Orbit)
   setTimeOfDay,
   setTimeAuto,
   setTimeSpeed,
@@ -41,15 +39,19 @@ let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterControl
 let placerActive = false;
 let guiHiddenBeforePlacer = false;
 let fireSystems = [];
-let torchUserEnabled = false; // user toggle keeps torch on/off while in FP view
+/** Tracks whether the user toggled the FP torch on. */
+let torchUserEnabled = false;
 
+/**
+ * Bootstraps the scene, assets, controls, and UI.
+ */
 async function init() {
   scene = new THREE.Scene();
   hotspotManager = createHotspotManager(scene);
 
   const canvas = document.getElementById('app');
   if (!canvas) {
-    console.error("FEHLER: <canvas id='app'> fehlt in index.html");
+    console.error("ERROR: <canvas id='app'> missing in index.html");
     return;
   }
 
@@ -71,13 +73,12 @@ async function init() {
   scene.add(cameras.fp.camera);
     initEgoTorch(cameras.fp.camera, {
         url: '/models/Fackel_Empty.glb',
-        emptyName: 'TorchFirePoint',           // wie dein Empty im GLB heißt
+        emptyName: 'TorchFirePoint',
         fireTex: '/textures/fire.png',
         intensity: 1000,
         distance: 1000
     });
 
-  // Kleinere Map -> FP wirkt größer
   buildCity(scene, {
     groundSize: 3000,
     water: {
@@ -120,9 +121,8 @@ async function init() {
 
   await loadPlacementsAndSpawn();
 
-  // 🔹 START-Zeit statt setDayNight(): 13:00 = Tag
   setTimeOfDay(13.0);
-  showStars(true, { manual: true }); // Sterne standardmäßig sichtbar, via GUI ein-/ausblendbar
+  showStars(true, { manual: true });
 
   gui = createGUI(renderer, cameras, lights, {
     water: {
@@ -157,7 +157,6 @@ async function init() {
       }
     }
     if (e.code === 'KeyN') {
-      // 🔹 Legacy-Shortcut bleibt: toggelt Tag/Nacht (intern Zeit ~13h / ~1h)
       const day = !isDaytime();
       setDayNight(day);
     }
@@ -181,36 +180,42 @@ async function init() {
       e.preventDefault();
     }
 
-    // 🔹 Komfort: Zeit manuell nudge’n (optional)
-    if (e.code === 'ArrowRight') setTimeOfDay(getHours() + 0.25); // +15min
-    if (e.code === 'ArrowLeft')  setTimeOfDay(getHours() - 0.25); // -15min
+    if (e.code === 'ArrowRight') setTimeOfDay(getHours() + 0.25);
+    if (e.code === 'ArrowLeft')  setTimeOfDay(getHours() - 0.25);
     if (e.code === 'KeyT') {
-      // Auto-Zeitraffer toggeln
-      // Tipp: Speed anpassbar mit +/- (unten)
       _auto = !_auto;
       setTimeAuto(_auto);
       gui?.setAutoMode?.(_auto);
     }
-    if (e.code === 'Equal' || e.code === 'NumpadAdd') { // +
+    if (e.code === 'Equal' || e.code === 'NumpadAdd') {
       _speed = Math.min(3.0, _speed + 0.05);
       setTimeSpeed(_speed);
     }
-    if (e.code === 'Minus' || e.code === 'NumpadSubtract') { // -
+    if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
       _speed = Math.max(0.05, _speed - 0.05);
       setTimeSpeed(_speed);
     }
   });
 }
 
-// 🔹 interner Status für Auto-Zeitfluss
+/** Auto time-lapse toggle. */
 let _auto = false;
 let _speed = 0.25;
 
+/**
+ * Switches cameras and mirrors the state to the GUI.
+ * @param {'orbit'|'drone'|'fp'} type
+ */
 function activateCamera(type) {
   switchToCamera(type);
   gui?.setActiveCamera?.(type);
 }
 
+/**
+ * Formats decimal hours to HH.MM display.
+ * @param {number} hours
+ * @returns {string}
+ */
 function formatHoursClock(hours) {
   let h = Math.floor(hours);
   let minutes = Math.round((hours - h) * 60);
@@ -221,6 +226,10 @@ function formatHoursClock(hours) {
   return `${String(h).padStart(2, '0')}.${String(minutes).padStart(2, '0')}`;
 }
 
+/**
+ * Handles UI visibility when the placer is toggled.
+ * @param {boolean} enabled
+ */
 function handlePlacerModeChange(enabled) {
   placerActive = enabled;
   if (enabled) {
@@ -234,6 +243,7 @@ function handlePlacerModeChange(enabled) {
   }
 }
 
+/** Main render loop. */
 function animate() {
   requestAnimationFrame(animate);
   const dt = clock.getDelta();
@@ -243,7 +253,6 @@ function animate() {
   cameras.drone.update(dt);
   cameras.fp.update(dt);
 
-  // 🔹 lässt optional Auto-Zeit laufen + hält Disks synchron
   updateSun(dt);
 
   updateCity(dt, t, scene, getActiveCameraType());
@@ -263,15 +272,14 @@ function animate() {
     updateWaterMaterials(daylight);
   }
 
-    fireSystems.forEach((fireFX) => {
-        fireFX.setEnabled(!isDaytime());
-        fireFX.update(dt, t)
-    });
+  fireSystems.forEach((fireFX) => {
+    fireFX.setEnabled(!isDaytime());
+    fireFX.update(dt, t);
+  });
 
-    // --- Ego-Fackel ---
-    const torchShouldBeOn = (type === 'fp') && !isDaytime() && torchUserEnabled;
-    setEgoTorchActive(torchShouldBeOn);
-    updateEgoTorch(dt, t);
+  const torchShouldBeOn = (type === 'fp') && !isDaytime() && torchUserEnabled;
+  setEgoTorchActive(torchShouldBeOn);
+  updateEgoTorch(dt, t);
 
   renderer.render(scene, cam);
 
@@ -279,11 +287,15 @@ function animate() {
   overlayEl.textContent =
     `Cam: ${type.toUpperCase()} · ` +
     `${isDaytime() ? 'DAY' : 'NIGHT'} · ` +
-    `TIME:${formatHoursClock(getHours())}h · ` +    // 🔹 Uhrzeit ins Overlay
+    `TIME:${formatHoursClock(getHours())}h · ` +
     `FPS:${stats.fps} · MS:${stats.ms} · MB:${mem}`;
   stats.update();
 }
 
+/**
+ * Syncs water material uniforms to the current daylight factor.
+ * @param {number} daylight
+ */
 function updateWaterMaterials(daylight) {
   if (!waterController) return;
   const reflectivity = THREE.MathUtils.lerp(0.72, 1.02, daylight);
@@ -313,6 +325,7 @@ function updateWaterMaterials(daylight) {
   }
 }
 
+/** Resizes renderer and cameras on viewport changes. */
 function onResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   for (const k of ['orbit','drone','fp']) {
@@ -324,6 +337,9 @@ function onResize() {
 
 const PLACEMENT_SOURCES = ['/api/placements', '/data/placements.json'];
 
+/**
+ * Loads placement definitions and instantiates GLBs, hotspots, and fire FX.
+ */
 async function loadPlacementsAndSpawn() {
   const placements = await loadPlacementsData();
   Object.entries(placements).forEach(([name, data]) => {
@@ -353,7 +369,7 @@ async function loadPlacementsAndSpawn() {
             glowStrength: hs.glowStrength ?? 1,
             title: hs.title ?? name,
             description: hs.description ?? '',
-            promptText: hs.prompt ?? 'Drücke E für Info'
+            promptText: hs.prompt ?? 'Press E for info'
           });
         }
 
@@ -367,7 +383,7 @@ async function loadPlacementsAndSpawn() {
         });
 
         if (!fireMarker) {
-          console.warn('Kein Fire-Empty im Sockel gefunden!');
+          console.warn('No fire anchor empty found in model.');
           return;
         }
 
@@ -383,6 +399,10 @@ async function loadPlacementsAndSpawn() {
   });
 }
 
+/**
+ * Attempts to load placement JSON from known endpoints with no-cache semantics.
+ * @returns {Promise<Record<string, any>>}
+ */
 async function loadPlacementsData() {
   for (const url of PLACEMENT_SOURCES) {
     try {
@@ -391,13 +411,19 @@ async function loadPlacementsData() {
       const json = await res.json().catch(() => null);
       if (json && typeof json === 'object') return json;
     } catch (err) {
-      console.warn('Placements laden fehlgeschlagen von', url, err);
+      console.warn('Failed to load placements from', url, err);
     }
   }
-  console.warn('Keine Placements geladen, verwende leeres Layout.');
+  console.warn('No placements loaded, using empty layout.');
   return {};
 }
 
+/**
+ * Normalizes vector-like input to an object with numeric x/y/z.
+ * @param {Array<number>|{x:number,y:number,z:number}} input
+ * @param {{x:number,y:number,z:number}} fallback
+ * @returns {{x:number,y:number,z:number}}
+ */
 function toVec3(input, fallback) {
   if (Array.isArray(input) && input.length === 3) {
     return { x: Number(input[0]) || 0, y: Number(input[1]) || 0, z: Number(input[2]) || 0 };
@@ -408,6 +434,11 @@ function toVec3(input, fallback) {
   return fallback;
 }
 
+/**
+ * Normalizes scale input to either a scalar or an xyz object.
+ * @param {number|Array<number>|{x:number,y:number,z:number}} value
+ * @returns {number|{x:number,y:number,z:number}}
+ */
 function toScale(value) {
   if (typeof value === 'number') return value;
   if (Array.isArray(value) && value.length === 3) {

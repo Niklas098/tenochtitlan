@@ -1,4 +1,3 @@
-// src/util/collision.js
 import * as THREE from 'three';
 import { OBB } from 'three/examples/jsm/math/OBB.js';
 
@@ -31,12 +30,12 @@ const HITBOX_MATERIAL = new THREE.MeshBasicMaterial({
   depthWrite: false,
 });
 
-// Precomputed deterministic offsets used to probe around a preferred spawn.
+/** Precomputed deterministic offsets used to probe around a preferred spawn. */
 const SAFE_OFFSETS = (() => {
   const offsets = [{ x: 0, y: 0, z: 0 }];
   const horizontalStep = 3;
   const maxRadius = 60;
-  const verticalLayers = [0, 1.5, -1.5, 3]; // allow slight elevation tweaks
+  const verticalLayers = [0, 1.5, -1.5, 3];
 
   for (const y of verticalLayers) {
     for (let radius = horizontalStep; radius <= maxRadius; radius += horizontalStep) {
@@ -87,7 +86,6 @@ export function createHitboxForGLB(scene, gltfScene, options = {}) {
     created += addHitboxForMesh(scene, child, config) ? 1 : 0;
   });
 
-  // Fallback: if the GLB had no meshes (rare), wrap the root once so collisions still work.
   if (created === 0) {
     const entry = buildFallbackHitbox(scene, gltfScene, config);
     if (entry) {
@@ -137,7 +135,6 @@ export function findSafeSpawnPosition(preferredPos) {
     }
   }
 
-  // Fallback: expand search vertically if everything else failed.
   for (let dy = 5; dy <= 50; dy += 5) {
     const up = desired.clone().add(new THREE.Vector3(0, dy, 0));
     if (!isInsideAnyHitbox(up)) return up;
@@ -145,7 +142,6 @@ export function findSafeSpawnPosition(preferredPos) {
     if (!isInsideAnyHitbox(down)) return down;
   }
 
-  // If nothing was found, return the original position (better than returning undefined).
   return desired;
 }
 

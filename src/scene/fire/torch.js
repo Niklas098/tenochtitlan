@@ -3,32 +3,36 @@ import {createFireSystem} from "./fire.js";
 
 let torchModel = null;
 let torchFX    = null;
-let torchActive = false;    // interner Zustand (an/aus)
+/** Internal on/off state for the ego torch. */
+let torchActive = false;
 
 /**
- * Einmal aufrufen, z.B. direkt nach dem Erzeugen der Kameras.
- * fpCamera: deine Ego-Kamera (cameras.fp.camera)
+ * Attaches a torch model with fire FX to the first-person camera.
+ * @param {THREE.Camera} fpCamera - First-person camera used as parent.
+ * @param {Object} [options]
+ * @param {string} [options.url='/models/Fackel_Empty.glb'] - Torch GLB path.
+ * @param {string} [options.emptyName='TorchFirePoint'] - Empty name inside the GLB used as fire anchor.
+ * @param {string} [options.fireTex='/textures/fire.png'] - Flame texture path.
+ * @param {number} [options.intensity=500] - Base light intensity.
+ * @param {number} [options.distance=500] - Light range.
  */
 export function initEgoTorch(fpCamera, {
-    url= '/models/Fackel_Empty.glb',  // dein Fackel-GLB
-    emptyName= 'TorchFirePoint',               // Name des Empties im GLB
+    url= '/models/Fackel_Empty.glb',
+    emptyName= 'TorchFirePoint',
     fireTex= '/textures/fire.png',
     intensity= 500,
     distance= 500
 } = {}) {
 
-    // WICHTIG: statt scene übergeben wir hier die FP-Kamera als "parent"
     loadGLB(fpCamera, {
         url,
-        // Position RELATIV zur Kamera (wie "in der Hand")
         position: { x: 2, y: -0.7, z: -2 },
         rotation: { x: 0, y: 0.3, z: 0 },
         scale: 1.5,
-        hitboxOptions: null, // Fackel braucht idR keine Kollision
+        hitboxOptions: null,
         onLoaded: (model) => {
             torchModel = model;
 
-            // Empty oben an der Fackel finden
             let fireMarker = null;
             model.traverse((child) => {
                 if (child.name === emptyName) {
@@ -37,11 +41,10 @@ export function initEgoTorch(fpCamera, {
             });
 
             if (!fireMarker) {
-                console.warn(`EgoTorch: Kein Empty "${emptyName}" im Torch-GLB gefunden!`);
+                console.warn(`EgoTorch: Empty "${emptyName}" not found in torch GLB`);
                 return;
             }
 
-            // Feuer-System an diesem Empty erzeugen
             torchFX = createFireSystem(
                 fireMarker,
                 fireTex,
@@ -53,13 +56,12 @@ export function initEgoTorch(fpCamera, {
                 100
             );
 
-            // aktuellen Aktiv-Status anwenden
             applyTorchActiveState();
         }
     });
 }
 
-// interne Helper-Funktion, um sichtbarkeit & FX zu synchronisieren
+/** Keeps torch visibility and particle effects in sync with activation. */
 function applyTorchActiveState() {
     if (!torchModel || !torchFX) return;
     torchModel.visible = torchActive;
@@ -67,8 +69,8 @@ function applyTorchActiveState() {
 }
 
 /**
- * Von außen steuerst du nur: Fackel an/aus.
- * Z.B. in animate(): setEgoTorchActive(active === 'fp' && isNight)
+ * External toggle to switch the torch on/off.
+ * Call per frame as needed, e.g. when switching to FP at night.
  */
 export function setEgoTorchActive(flag) {
     torchActive = flag;
@@ -76,7 +78,7 @@ export function setEgoTorchActive(flag) {
 }
 
 /**
- * Im animate()-Loop aufrufen. Animiert nur, wenn Fackel aktiv ist und FX existiert.
+ * Advances torch animation; no-ops when inactive or not yet loaded.
  */
 export function updateEgoTorch(dt, elapsed) {
     if (!torchActive || !torchFX) return;

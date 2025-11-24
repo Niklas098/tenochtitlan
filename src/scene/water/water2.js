@@ -1,4 +1,3 @@
-// src/scene/water/water2.js
 import * as THREE from 'three';
 import { Water } from 'three/examples/jsm/objects/Water2.js';
 

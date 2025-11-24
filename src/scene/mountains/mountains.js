@@ -1,7 +1,6 @@
-// src/scene/mountains/mountains.js
 import * as THREE from 'three';
 
-// Fallback Noise Funktion, falls keine Library da ist (sehr robust)
+/** Lightweight Perlin-style noise used when no external library is present. */
 const simpleNoise = (function() {
   const p = new Uint8Array(512);
   const permutation = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180];
@@ -87,7 +86,6 @@ export function createMountains(scene, options = {}) {
   );
   geometry.rotateX(-Math.PI / 2);
 
-  // UV-Mapping: Textur häufiger wiederholen für mehr Detaildichte
   const uvAttribute = geometry.attributes.uv;
   for (let i = 0; i < uvAttribute.count; i++) {
     const u = uvAttribute.getX(i);
@@ -112,7 +110,6 @@ export function createMountains(scene, options = {}) {
 
     posAttribute.setY(i, height + config.baseOffset);
 
-    // Snow + alpine tinting
     const snowNoise = simpleNoise((x + config.seed) * 0.0016, 800, (z - config.seed) * 0.0016);
     const snowMix = THREE.MathUtils.smoothstep(
       normalizedHeight + slope * 0.22 + snowNoise * config.snowNoise,
@@ -129,7 +126,6 @@ export function createMountains(scene, options = {}) {
     color.lerp(rock, rockMix);
     color.lerp(PALETTE.peakSnow, snowMix);
 
-    // Feine Variation pro Vertex für weniger sterile Flächen
     const tint = (biomeNoise * 0.5 + 0.5) * 0.06 - 0.03;
     color.offsetHSL(0, 0, tint);
 
@@ -181,7 +177,6 @@ function sampleHeight(x, z, config) {
   const nx = x * config.noiseScale + config.seed;
   const nz = z * config.noiseScale + config.seed;
 
-  // Mehr Gliederung: Makro-Formen + Ridges + Detailrauschen
   const macro = simpleNoise(nx * 0.35, 50, nz * 0.35) * 0.2;
   const base = simpleNoise(nx, 0, nz);
   const ridges = Math.abs(simpleNoise(nx * 1.9, 100, nz * 1.9));
@@ -230,15 +225,14 @@ function createDetailTexture() {
     const x = (i / 4) % size;
     const y = Math.floor((i / 4) / size);
 
-    // Körnung + horizontale Schichtungen für Fels (leichte Richtung)
     const grain = (Math.random() - 0.5) * 36;
     const strata = Math.sin(x * 0.024 + y * 0.032) * 22 + Math.cos(y * 0.018) * 14;
     const blotch = Math.sin(x * 0.012) * Math.cos(y * 0.011) * 28;
 
     const val = 128 + grain + strata * 0.35 + blotch * 0.25;
-    data[i] = val + 6;      // R
-    data[i + 1] = val - 2;  // G
-    data[i + 2] = val - 8;  // B
+    data[i] = val + 6;
+    data[i + 1] = val - 2;
+    data[i + 2] = val - 8;
     data[i + 3] = 255;
   }
   ctx.putImageData(imgData, 0, 0);

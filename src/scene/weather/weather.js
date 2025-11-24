@@ -1,6 +1,20 @@
-// src/scene/weather/weather.js
 import * as THREE from 'three';
 
+/**
+ * Creates rain/fog weather effects and exposes toggles plus an update hook.
+ * @param {THREE.Scene} scene
+ * @param {{waterController?:Object|null}} [options]
+ * @returns {{
+ *   root:THREE.Group,
+ *   update:(deltaSec:number,camera:THREE.Camera)=>void,
+ *   setFogEnabled:(on:boolean)=>void,
+ *   setRainEnabled:(on:boolean)=>void,
+ *   toggleFog:()=>void,
+ *   toggleRain:()=>void,
+ *   isFogEnabled:()=>boolean,
+ *   isRainEnabled:()=>boolean
+ * }}
+ */
 export function createWeather(scene, { waterController = null } = {}) {
   if (!scene?.isScene) throw new Error('createWeather(scene) expects a THREE.Scene');
 
@@ -9,9 +23,7 @@ export function createWeather(scene, { waterController = null } = {}) {
   scene.add(root);
 
   const state = { fog: false, rain: false };
-  // Realistischerer Nebel: Kühles Grau-Blau
   const fogColor = new THREE.Color(0xbdcdd6);
-  // Dichte nochmals erhöht (0.0025), für sehr starken Nebel direkt vor der Kamera
   const userFog = new THREE.FogExp2(fogColor, 0.0025);
   let previousFog = scene.fog ?? null;
 
@@ -19,7 +31,6 @@ export function createWeather(scene, { waterController = null } = {}) {
   root.add(rain.points);
   rain.points.visible = false;
 
-  // Volumetrischer Nebel (Mist) für direkte Sichtbarkeit
   const mist = createMistSystem(fogColor);
   root.add(mist.points);
   mist.points.visible = false;
@@ -41,7 +52,7 @@ export function createWeather(scene, { waterController = null } = {}) {
     const enable = !!on;
     if (enable === state.fog) return;
     state.fog = enable;
-    mist.points.visible = enable; // Mist aktivieren
+    mist.points.visible = enable;
 
     if (enable) {
       previousFog = scene.fog ?? null;
@@ -76,6 +87,11 @@ export function createWeather(scene, { waterController = null } = {}) {
   };
 }
 
+/**
+ * Builds a rain particle system that follows the camera.
+ * @param {{count?:number,areaSize?:number,height?:number,wind?:THREE.Vector2,fallSpeed?:[number,number]}} [options]
+ * @returns {{points:THREE.LineSegments, update:(deltaSec:number,camera:THREE.Camera)=>void}}
+ */
 function createRainSystem({
   count = 10000, 
   areaSize = 2000,
@@ -167,6 +183,11 @@ function createRainSystem({
   return { points, update };
 }
 
+/**
+ * Builds a volumetric-looking mist cloud around the camera.
+ * @param {THREE.Color} color
+ * @returns {{points:THREE.Points, update:(deltaSec:number,camera:THREE.Camera)=>void}}
+ */
 function createMistSystem(color) {
   const count = 150;
   const areaSize = 1200;
@@ -212,7 +233,7 @@ function createMistSystem(color) {
     size: 400,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.45, // Opazität erhöht für dichtere Nebelschwaden
+    opacity: 0.45,
     depthWrite: false,
     blending: THREE.NormalBlending
   });

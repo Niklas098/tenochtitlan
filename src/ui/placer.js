@@ -1,5 +1,5 @@
-// src/ui/placer.js
 import * as THREE from 'three';
+import GUI from 'lil-gui';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { updateHitboxesForObject } from '../util/collision.js';
 
@@ -255,7 +255,6 @@ function setupTransformControls() {
         persistTransform(state.selection);
         state.pendingPersistAfterDrag = false;
       }
-      // Delay lifting suppression so pointerup from the gizmo click does not re-trigger selection.
       setTimeout(() => {
         state.suppressSelectionUntilPointerUp = false;
       }, 0);
@@ -461,14 +460,13 @@ function cloneSelectionRow() {
   for (let i = 1; i <= count; i++) {
     const clone = base.clone(true);
     clone.position.copy(start).addScaledVector(forward, spacing * i);
-    // frische userData, damit Ids/Defaults nicht geteilt werden
     clone.userData = { ...base.userData };
     delete clone.userData.placerDefault;
     delete clone.userData.placerId;
     const newId = `${base.userData?.placerId || base.name || 'placeable'}-${THREE.MathUtils.generateUUID()}`;
     state.scene.add(clone);
     registerPlaceableObject(clone, newId);
-    persistTransform(clone); // sofort ins Persisted-Layout übernehmen
+    persistTransform(clone);
   }
 }
 

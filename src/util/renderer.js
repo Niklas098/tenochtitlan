@@ -1,6 +1,10 @@
-// src/util/renderer.js
 import * as THREE from 'three';
 
+/**
+ * Creates a WebGL renderer with sensible defaults plus a lightweight HUD and stats helper.
+ * @param {HTMLCanvasElement} canvas
+ * @returns {{renderer:THREE.WebGLRenderer, stats:{update:Function,fps:number,ms:number}, overlayEl:HTMLElement}}
+ */
 export function createRenderer(canvas) {
     const renderer = new THREE.WebGLRenderer({
         canvas,
@@ -10,20 +14,17 @@ export function createRenderer(canvas) {
         depth: true
     });
 
-    // ⚙️ Performance: harte Kappe
-    const MAX_DPR = 1.4; // kleiner als 2 -> merkbar schneller
+    const MAX_DPR = 1.4;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_DPR));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1;
 
-    // ⚙️ Performance: softere Shadows
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.physicallyCorrectLights = true;
 
-    // Sehr leichtgewichtiges FPS/MS
     const stats = (function() {
         let last = performance.now();
         let frames = 0;
@@ -47,7 +48,6 @@ export function createRenderer(canvas) {
         };
     })();
 
-    // HUD (FPS/MS/MB)
     let overlayEl = document.getElementById('hud');
     if (!overlayEl) {
         overlayEl = document.createElement('div');
@@ -67,7 +67,6 @@ export function createRenderer(canvas) {
         document.body.appendChild(overlayEl);
     }
 
-    // kleine Helfer zum Tuning aus der GUI
     renderer.__setPixelRatioCap = (cap) => {
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, cap));
         renderer.setSize(window.innerWidth, window.innerHeight);

@@ -1,25 +1,25 @@
-// FireAndSmokeSystem.js
-// Eine Funktion: erzeugt Feuer + Rauch + Licht an einem Anchor/Empty.
-// Du brauchst nur noch createFireAndSmokeSystem() aufzurufen.
-
 import * as THREE from 'three';
 
 /**
- * Erzeugt ein Feuer- + Rauch- + Lichtsystem an einem Anchor-Objekt (z.B. Empty aus Blender).
+ * Creates a fire + smoke particle system plus flickering point light at an anchor object.
+ * @param {THREE.Object3D} anchor - Object used as the local origin for the effect.
+ * @param {string} [fireTexture="/textures/fire.png"] - Texture atlas for the flame sprites.
+ * @param {number} [intensity] - Base light intensity.
+ * @param {number} [distance] - Light attenuation range.
+ * @param {number} [radius=0.7] - Spawn radius for flame particles.
+ * @param {number} [lightHeight=20] - Point light offset above the anchor.
+ * @param {number} [noiseValue=50] - Random flicker strength.
+ * @param {number} [sineValue=50] - Sinusoidal flicker strength.
  *
  * @returns {{
  *   update: (deltaTime:number, elapsedTime:number) => void,
+ *   setEnabled: (flag:boolean) => void,
  *   fireLight: THREE.PointLight,
  *   firePoints: THREE.Points,
  *   smokePoints: THREE.Points
  * }}
  */
 export function createFireSystem(anchor, fireTexture = "/textures/fire.png", intensity, distance, radius = 0.7, lightHeight = 20, noiseValue = 50, sineValue = 50) {
-    // ---------------------------------------------------------------------------
-    // Interne Hilfsfunktionen / Shader (sichtbar nur innerhalb dieser Funktion)
-    // ---------------------------------------------------------------------------
-
-    // Vertex-Shader: berechnet Partikelgröße, Rotation und Farbe
     const VERTEX_SHADER = `
     uniform float pointMultiplier;
 
@@ -40,7 +40,6 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
       vColor = aColor;
     }`;
 
-    // Fragment-Shader: rotiert die Sprite-Textur und multipliziert mit Farbe/Alpha
     const FRAGMENT_SHADER = `
     uniform sampler2D diffuseTexture;
 
@@ -56,7 +55,10 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
       gl_FragColor = texture2D(diffuseTexture, coords) * vColor;
     }`;
 
-    // Einfacher linearer Spline für Farb-/Alpha-/Größenverläufe
+    /**
+     * Builds a simple piecewise-linear spline that interpolates arbitrary values.
+     * @param {(t:number,a:any,b:any)=>any} lerpFn - Interpolation function between two control points.
+     */
     function getLinearSpline(lerpFn) {
         const points = [];
 
@@ -86,8 +88,22 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
         return { addPoint, getValueAt };
     }
 
-    // Generischer Partikelgenerator (Feuer ODER Rauch),
-    // bleibt intern, wird nur von dieser Funktion benutzt.
+    /**
+     * Creates a particle system with custom splines and blending.
+     * @param {Object} config
+     * @param {THREE.Object3D} config.parent
+     * @param {string} config.texturePath
+     * @param {number} config.rate
+     * @param {number} config.radius
+     * @param {number} config.maxLife
+     * @param {number} config.maxSize
+     * @param {THREE.Vector3} config.baseVelocity
+     * @param {Array<[number,THREE.Color]>} config.colorPoints
+     * @param {Array<[number,number]>} config.alphaPoints
+     * @param {Array<[number,number]>} config.sizePoints
+     * @param {THREE.Blending} config.blending
+     * @returns {{update:(dt:number)=>void, clear:()=>void, points:THREE.Points}}
+     */
     function createParticleSystem({
                                       parent,
                                       texturePath,
@@ -105,7 +121,6 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
 
         const uniforms = {
             diffuseTexture: { value: texture },
-            // FOV-Approx für Punktgröße, 30° reicht hier
             pointMultiplier: {
                 value: window.innerHeight / (2.0 * Math.tan(30.0 * Math.PI / 180.0)),
             },
@@ -131,7 +146,6 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
         const points = new THREE.Points(geometry, material);
         parent.add(points);
 
-        // Splines aufbauen
         const alphaSpline = getLinearSpline((t, a, b) => a + t * (b - a));
         alphaPoints.forEach(([t, v]) => alphaSpline.addPoint(t, v));
 
@@ -180,7 +194,6 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
         }
 
         function updateParticles(dt) {
-            // Lebenszeit reduzieren und tote Partikel entfernen
             for (let p of particles) {
                 p.life -= dt;
             }
@@ -197,7 +210,6 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
 
                 p.position.add(p.velocity.clone().multiplyScalar(dt));
 
-                // einfacher Drag
                 const drag = p.velocity.clone().multiplyScalar(dt * 0.1);
                 drag.x = Math.sign(p.velocity.x) * Math.min(Math.abs(drag.x), Math.abs(p.velocity.x));
                 drag.y = Math.sign(p.velocity.y) * Math.min(Math.abs(drag.y), Math.abs(p.velocity.y));
@@ -231,9 +243,7 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
         }
 
         function clear() {
-            particles = [];  // Liste leeren
-
-            // Leere Attribute setzen
+            particles = [];
             geometry.setAttribute('position', new THREE.Float32BufferAttribute([], 3));
             geometry.setAttribute('size', new THREE.Float32BufferAttribute([], 1));
             geometry.setAttribute('aColor', new THREE.Float32BufferAttribute([], 4));
@@ -255,11 +265,6 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
         return { update, clear, points };
     }
 
-    // ---------------------------------------------------------------------------
-    // Ab hier: Konkrete Systeme für Feuer, Rauch und das Licht
-    // ---------------------------------------------------------------------------
-
-    // 🔥 Feuer direkt am Anchor
     const fireSystem = createParticleSystem({
         parent: anchor,
         texturePath: fireTexture,
@@ -288,29 +293,26 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
         ],
     });
 
-    // 💡 flackerndes Licht
     const fireLight = new THREE.PointLight(0xffaa55, intensity, distance);
     fireLight.position.set(0, lightHeight, 0);
     anchor.add(fireLight);
 
-    let enabled = false;  // Anfangszustand: an
+    let enabled = false;
 
     function setEnabled(flag) {
         if (enabled === flag) {
             fireLight.visible = flag;
             return;
-        }   // nichts tun, wenn sich nichts ändert
+        }
         enabled = flag;
 
         fireLight.visible = flag;
 
         if (!flag) {
-            // Tagsüber: alle Partikel weg
             fireSystem.clear();
         }
     }
 
-    // Eine zentrale Update-Funktion für das komplette System
     function update(deltaTime, elapsedTime) {
 
         if (!enabled) return;
@@ -322,7 +324,6 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
         fireLight.intensity = baseIntensity + noise + sine;
     }
 
-    // Das ist das einzige, was der Aufrufer sieht/benutzen muss.
     return {
         update,
         setEnabled,

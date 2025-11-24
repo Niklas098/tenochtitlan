@@ -4,7 +4,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 const TMP_POS = new THREE.Vector3();
 const TMP_ICON = new THREE.Vector3();
 
-// Farben des Info-Icons (leicht anpassbar)
+/** Info icon colors (tweakable). */
 const ICON_GRADIENT_INNER = 'rgba(117, 169, 238, 0.9)';
 const ICON_GRADIENT_MID   = 'rgba(54, 149, 226, 0.75)';
 const ICON_GRADIENT_OUTER = 'rgba(77, 211, 235, 0)';
