@@ -1178,27 +1178,6 @@
     "intensity": 1000,
     "distance": 1000
   },
-  "firesockel-17": {
-    "url": "/models/Feuerschale_Empty.glb",
-    "position": [
-      31.588189228545474,
-      0.29191464172567094,
-      -24.92221512894232
-    ],
-    "rotation": [
-      0.04894751329300705,
-      0.612358676115454,
-      -0.0031091478376245006
-    ],
-    "scale": [
-      0.6,
-      0.6,
-      0.6
-    ],
-    "emptyName": "BowlFirePoint",
-    "intensity": 1000,
-    "distance": 1000
-  },
   "firesockel-21": {
     "url": "/models/Feuerschale_Empty.glb",
     "position": [

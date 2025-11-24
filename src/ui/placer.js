@@ -1,6 +1,5 @@
 // src/ui/placer.js
 import * as THREE from 'three';
-import GUI from 'lil-gui';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { updateHitboxesForObject } from '../util/collision.js';
 
@@ -211,42 +210,31 @@ function setupSelectionHelper() {
 }
 
 function setupGUI() {
-  state.gui = new GUI({ title: 'Placer', width: 300 });
-  state.gui.domElement.style.zIndex = '5';
-
-  const transform = state.gui.addFolder('Transform');
-  state.guiControllers.mode = transform.add(state.guiState, 'mode', ['translate', 'rotate']).name('Gizmo')
-    .onChange((mode) => {
+  const panel = createPlacerPanel({
+    onModeChange: (mode) => {
       if (suppressModeChange) return;
       setTransformMode(mode);
-    });
+    },
+    onTransformChange: (axis, value) => applyGuiTransform(axis, value),
+    actions: {
+      resetRot: () => resetSelectionRotation(),
+      resetHeight: () => resetSelectionHeight(),
+      resetAll: () => resetSelectionDefaults(),
+      cloneRow: () => cloneSelectionRow(),
+      exportLayout: () => exportLayoutToClipboard(),
+      importLayout: () => importLayoutFromPrompt(),
+      reloadLayout: () => reloadLayoutFromServer()
+    }
+  });
 
-  state.guiControllers.x = transform.add(state.guiState, 'x').name('Pos X').onChange((v) => applyGuiTransform('x', v));
-  state.guiControllers.y = transform.add(state.guiState, 'y').name('Pos Y').onChange((v) => applyGuiTransform('y', v));
-  state.guiControllers.z = transform.add(state.guiState, 'z').name('Pos Z').onChange((v) => applyGuiTransform('z', v));
-  state.guiControllers.rotY = transform.add(state.guiState, 'rotY').name('Rotation Y (°)').onChange((v) => applyGuiTransform('rotY', v));
+  state.gui = panel;
+  state.guiControllers.mode = panel.controllers.mode;
+  state.guiControllers.x = panel.controllers.x;
+  state.guiControllers.y = panel.controllers.y;
+  state.guiControllers.z = panel.controllers.z;
+  state.guiControllers.rotY = panel.controllers.rotY;
 
   toggleTransformInputs(false);
-
-  const actionsFolder = state.gui.addFolder('Aktionen');
-  const actions = {
-    resetRot: () => resetSelectionRotation(),
-    resetHeight: () => resetSelectionHeight(),
-    resetAll: () => resetSelectionDefaults(),
-    cloneRow: () => cloneSelectionRow(),
-    exportLayout: () => exportLayoutToClipboard(),
-    importLayout: () => importLayoutFromPrompt(),
-    reloadLayout: () => reloadLayoutFromServer()
-  };
-  actionsFolder.add(actions, 'resetRot').name('Rotation → Default');
-  actionsFolder.add(actions, 'resetHeight').name('Höhe → Default');
-  actionsFolder.add(actions, 'resetAll').name('Alles → Default');
-  actionsFolder.add(actions, 'cloneRow').name('Reihe duplizieren');
-  actionsFolder.add(actions, 'exportLayout').name('Layout kopieren');
-  actionsFolder.add(actions, 'importLayout').name('Layout einfügen');
-  actionsFolder.add(actions, 'reloadLayout').name('Layout vom Server laden');
-
-  // Standardmäßig versteckt, bis der Placer aktiv ist
   state.gui.hide();
 }
 
@@ -394,7 +382,7 @@ function toggleTransformInputs(enabled) {
   const { x, y, z, rotY } = state.guiControllers;
   [x, y, z, rotY].forEach((ctrl) => {
     if (!ctrl) return;
-    if (enabled) ctrl.enable(); else ctrl.disable();
+    if (enabled) ctrl.enable?.(); else ctrl.disable?.();
   });
 }
 
@@ -416,14 +404,14 @@ function syncGuiFromSelection() {
 
   ['x', 'y', 'z', 'rotY'].forEach((key) => {
     const ctrl = state.guiControllers[key];
-    if (ctrl) ctrl.updateDisplay();
+    if (ctrl?.updateDisplay) ctrl.updateDisplay();
   });
-
 }
 
 function applyGuiTransform(axis, value) {
   if (!state.selection) return;
   const numeric = Number(value) || 0;
+  state.guiState[axis] = numeric;
   if (axis === 'rotY') {
     state.selection.rotation.y = THREE.MathUtils.degToRad(numeric);
   } else {
@@ -676,6 +664,237 @@ function savePersistedTransforms() {
   }).catch((err) => {
     console.warn('Placer: Speichern auf dem Server fehlgeschlagen.', err);
   });
+}
+
+function createPlacerPanel({ onModeChange, onTransformChange, actions = {} }) {
+  injectPlacerStyles();
+  const root = document.createElement('section');
+  root.className = 'hud-panel placer-panel';
+
+  const controllers = {};
+
+  const transformCard = createPlacerCard('Transform');
+  const modeControl = createModeSelector(state.guiState.mode || 'translate', onModeChange);
+  controllers.mode = modeControl.controller;
+  transformCard.body.appendChild(modeControl.element);
+
+  const axisConfigs = [
+    { key: 'x', label: 'Pos X', step: 0.1, precision: 2 },
+    { key: 'y', label: 'Pos Y', step: 0.1, precision: 2 },
+    { key: 'z', label: 'Pos Z', step: 0.1, precision: 2 },
+    { key: 'rotY', label: 'Rotation Y (°)', step: 1, precision: 1 }
+  ];
+
+  axisConfigs.forEach(({ key, label, step, precision }) => {
+    const control = createNumberControl({
+      label,
+      step,
+      precision,
+      getValue: () => state.guiState[key] ?? 0,
+      onChange: (value) => onTransformChange(key, value)
+    });
+    controllers[key] = control;
+    transformCard.body.appendChild(control.element);
+  });
+
+  root.appendChild(transformCard.card);
+
+  const actionsCard = createPlacerCard('Aktionen');
+  const actionButtons = [
+    { label: 'Rotation → Default', action: actions.resetRot },
+    { label: 'Höhe → Default', action: actions.resetHeight },
+    { label: 'Alles → Default', action: actions.resetAll },
+    { label: 'Reihe duplizieren', action: actions.cloneRow },
+    { label: 'Layout kopieren', action: actions.exportLayout },
+    { label: 'Layout einfügen', action: actions.importLayout },
+    { label: 'Layout vom Server laden', action: actions.reloadLayout }
+  ];
+  actionButtons.forEach(({ label, action }) => {
+    if (typeof action !== 'function') return;
+    actionsCard.body.appendChild(createStackedButton(label, action));
+  });
+  root.appendChild(actionsCard.card);
+
+  document.body.appendChild(root);
+
+  return {
+    element: root,
+    controllers,
+    _hidden: false,
+    show() {
+      root.classList.remove('hud-panel--hidden');
+      this._hidden = false;
+    },
+    hide() {
+      root.classList.add('hud-panel--hidden');
+      this._hidden = true;
+    }
+  };
+}
+
+function createPlacerCard(title) {
+  const card = document.createElement('article');
+  card.className = 'hud-card';
+  const header = document.createElement('header');
+  header.className = 'hud-card__header';
+  const titleEl = document.createElement('span');
+  titleEl.textContent = title;
+  header.appendChild(titleEl);
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'hud-card__toggle';
+  toggle.setAttribute('aria-label', 'Panel ein-/ausklappen');
+  header.appendChild(toggle);
+  card.appendChild(header);
+  const body = document.createElement('div');
+  body.className = 'hud-card__body';
+  card.appendChild(body);
+
+  const setCollapsed = (flag) => {
+    card.classList.toggle('is-collapsed', flag);
+    toggle.textContent = flag ? '+' : '−';
+  };
+  setCollapsed(false);
+  toggle.addEventListener('click', () => {
+    setCollapsed(!card.classList.contains('is-collapsed'));
+  });
+
+  return { card, body, setCollapsed };
+}
+
+function createModeSelector(initialMode, onChange) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'hud-btn-row';
+  const modes = [
+    { id: 'translate', label: 'Translate' },
+    { id: 'rotate', label: 'Rotate' }
+  ];
+  const buttons = new Map();
+  const setValue = (mode) => {
+    buttons.forEach((btn, id) => {
+      btn.classList.toggle('is-active', id === mode);
+    });
+  };
+
+  modes.forEach(({ id, label }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hud-btn';
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('is-active')) return;
+      setValue(id);
+      onChange(id);
+    });
+    buttons.set(id, btn);
+    wrapper.appendChild(btn);
+  });
+
+  setValue(initialMode);
+
+  return {
+    element: wrapper,
+    controller: {
+      setValue: setValue
+    }
+  };
+}
+
+function createNumberControl({ label, step = 0.1, precision = 2, getValue, onChange }) {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'hud-control hud-control--input';
+  const topRow = document.createElement('div');
+  topRow.className = 'hud-control__top';
+  const labelEl = document.createElement('span');
+  labelEl.textContent = label;
+  const valueEl = document.createElement('span');
+  valueEl.className = 'hud-control__value';
+  topRow.appendChild(labelEl);
+  topRow.appendChild(valueEl);
+  wrapper.appendChild(topRow);
+
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.step = String(step);
+  input.addEventListener('keydown', (e) => e.stopPropagation());
+  input.addEventListener('keyup', (e) => e.stopPropagation());
+  input.addEventListener('input', () => {
+    if (input.disabled) return;
+    const numeric = parseFloat(input.value);
+    if (!Number.isFinite(numeric)) return;
+    valueEl.textContent = numeric.toFixed(precision);
+    onChange(numeric);
+  });
+  input.addEventListener('blur', () => {
+    setValue(getValue());
+  });
+  wrapper.appendChild(input);
+
+  const setValue = (value) => {
+    const numeric = Number.isFinite(value) ? value : 0;
+    input.value = numeric.toFixed(precision);
+    valueEl.textContent = numeric.toFixed(precision);
+  };
+
+  const controller = {
+    element: wrapper,
+    updateDisplay: () => setValue(getValue()),
+    enable: () => {
+      input.disabled = false;
+      wrapper.classList.remove('is-disabled');
+    },
+    disable: () => {
+      input.disabled = true;
+      wrapper.classList.add('is-disabled');
+    }
+  };
+
+  controller.updateDisplay();
+  return controller;
+}
+
+function createStackedButton(label, handler) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'hud-btn hud-btn--ghost hud-btn--stacked';
+  btn.textContent = label;
+  btn.addEventListener('click', () => handler?.());
+  return btn;
+}
+
+let placerStylesInjected = false;
+function injectPlacerStyles() {
+  if (placerStylesInjected) return;
+  placerStylesInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+    .placer-panel {
+      right: 24px;
+      width: 200px;
+      overflow-x: hidden;
+      background: none;
+    }
+    .hud-control--input input {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(6,20,40,0.9);
+      color: #e8f2ff;
+      font: 600 13px/1 'Inter', sans-serif;
+      outline: none;
+    }
+    .hud-control--input.is-disabled input {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    .hud-btn--stacked {
+      width: 100%;
+      justify-content: center;
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 function clearPersistedTransforms() {

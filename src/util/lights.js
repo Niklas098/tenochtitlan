@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 let lights = null;
+let starsVisible = false;
 let state = { hours: 13.0, auto: false, speed: 0.25, daylightFactor: 1.0 };
+let starOverride = null;
 const SUN_DEFAULT_INTENSITY = 2.1;
 
 const clamp01 = x => Math.max(0, Math.min(1, x));
@@ -117,6 +119,7 @@ export function setTimeOfDay(hours) {
   state.daylightFactor = clamp01(p.sunI / SUN_DEFAULT_INTENSITY);
   if (!lights) return;
   const { sun, sunTarget, moon, moonMesh, moonHalo, moonTarget, hemi, starField, sky } = lights;
+  let nightFactor = p.isDay ? 0 : 1;
 
   sun.position.copy(p.sunPos); sun.color.copy(p.sunColor); sun.intensity = p.sunI; sunTarget.position.set(0, 0, 0); sun.target.updateMatrixWorld?.();
 
@@ -127,17 +130,16 @@ export function setTimeOfDay(hours) {
 
   hemi.intensity = p.isDay ? p.hemiI : 0.02;
 
-  if (starField) { const mat = starField.material; let nightT = p.isDay ? 0 : 1; mat.opacity = 0.8 * nightT; starField.visible = mat.opacity > 0.02; }
-
   if (sky) {
     sky.material.uniforms.sunPosition.value.copy(sun.position.clone().normalize());
     const sstep = (e0, e1, x) => { const t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); };
     const h = ((hours % 24) + 24) % 24, phi = h / 24 * Math.PI * 2 - Math.PI / 2, elevDeg = Math.asin(Math.sin(phi)) * 180 / Math.PI;
     const nightT = 1 - sstep(-12, -6, elevDeg), u = sky.material.uniforms;
+    nightFactor = nightT;
     u.rayleigh.value = lerp(1.5, -2, nightT); u.mieCoefficient.value = lerp(0.0035, -2, nightT); u.turbidity.value = lerp(2.0, -20.0, nightT);
     if (u.skyDarkness) u.skyDarkness.value = lerp(0.6, 0.2, nightT);
-    if (starField) { const m = starField.material; m.opacity = 0.8 * nightT; starField.visible = m.opacity > 0.02; }
   }
+  applyStarVisibility(nightFactor);
 }
 
 export function updateSun(deltaSec = 0) { if (!lights) return; if (state.auto && deltaSec > 0) setTimeOfDay(state.hours + state.speed * deltaSec); lights.moonMesh?.position.copy(lights.moon.position); lights.moonHalo?.position.copy(lights.moon.position); }
@@ -148,4 +150,32 @@ export const setTimeAuto = on => { state.auto = !!on; };
 export const setTimeSpeed = v => { state.speed = v; };
 export function setDayNight(day) { setTimeOfDay(day ? 13.0 : 1.0); }
 export function attachTorchTo() {}
-export function showStars(on) { if (lights?.starField) lights.starField.visible = !!on; }
+export function showStars(on, { manual = false } = {}) {
+  if (manual) {
+    starOverride = !!on;
+  } else {
+    starOverride = null;
+  }
+  const visible = !!on;
+  if (lights?.starField) {
+    const opacity = visible ? 0.8 : 0;
+    lights.starField.material.opacity = opacity;
+    lights.starField.visible = opacity > 0.02;
+  }
+  starsVisible = visible;
+}
+export const areStarsVisible = () => starOverride ?? starsVisible;
+
+function applyStarVisibility(nightFactor = 0) {
+  if (!lights?.starField) return;
+  const mat = lights.starField.material;
+  let opacity;
+  if (starOverride === null) {
+    opacity = 0.8 * clamp01(nightFactor);
+  } else {
+    opacity = starOverride ? 0.8 : 0;
+  }
+  mat.opacity = opacity;
+  lights.starField.visible = opacity > 0.02;
+  starsVisible = lights.starField.visible;
+}

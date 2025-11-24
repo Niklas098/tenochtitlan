@@ -41,7 +41,7 @@ let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterControl
 let placerActive = false;
 let guiHiddenBeforePlacer = false;
 let fireSystems = [];
-let torchUserEnabled = true; // user toggle keeps torch on/off while in FP view
+let torchUserEnabled = false; // user toggle keeps torch on/off while in FP view
 
 async function init() {
   scene = new THREE.Scene();
@@ -64,7 +64,7 @@ async function init() {
   const safeFpPos = findSafeSpawnPosition(cameras.fp.camera.position);
   cameras.fp.camera.position.copy(safeFpPos);
 
-  switchToCamera('drone');
+  activateCamera('drone');
 
   lights = createLights(scene);
 
@@ -111,6 +111,19 @@ async function init() {
     waterController
   });
 
+  initPlacer({
+    scene,
+    domElement: renderer.domElement,
+    defaultEnabled: false,
+    onEnabledChange: handlePlacerModeChange
+  });
+
+  await loadPlacementsAndSpawn();
+
+  // 🔹 START-Zeit statt setDayNight(): 13:00 = Tag
+  setTimeOfDay(13.0);
+  showStars(true, { manual: true }); // Sterne standardmäßig sichtbar, via GUI ein-/ausblendbar
+
   gui = createGUI(renderer, cameras, lights, {
     water: {
       getQuality: () => waterController?.getQuality?.() ?? WATER_QUALITY.ULTRA,
@@ -124,30 +137,18 @@ async function init() {
     }
   });
 
-
-  initPlacer({
-    scene,
-    domElement: renderer.domElement,
-    defaultEnabled: false,
-    onEnabledChange: handlePlacerModeChange
-  });
-
-  await loadPlacementsAndSpawn();
-
-  // 🔹 START-Zeit statt setDayNight(): 13:00 = Tag
-  setTimeOfDay(13.0);
-  showStars(false); // wird eh automatisch aus setTimeOfDay gesteuert
-
   clock = new THREE.Clock();
   window.addEventListener('resize', onResize);
   onResize();
+
+  gui?.setActiveCamera?.(getActiveCameraType());
 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyC') {
       const order = ['orbit','drone','fp'];
       const cur = order.indexOf(getActiveCameraType());
       const next = order[(cur+1) % order.length];
-      switchToCamera(next);
+      activateCamera(next);
     }
     if (e.code === 'KeyE' && getActiveCameraType() === 'fp') {
       if (hotspotManager?.handleInteract()) {
@@ -159,7 +160,6 @@ async function init() {
       // 🔹 Legacy-Shortcut bleibt: toggelt Tag/Nacht (intern Zeit ~13h / ~1h)
       const day = !isDaytime();
       setDayNight(day);
-      showStars(!day);
     }
     if (e.code === 'KeyG') {
       if (placerActive) return;
@@ -189,6 +189,7 @@ async function init() {
       // Tipp: Speed anpassbar mit +/- (unten)
       _auto = !_auto;
       setTimeAuto(_auto);
+      gui?.setAutoMode?.(_auto);
     }
     if (e.code === 'Equal' || e.code === 'NumpadAdd') { // +
       _speed = Math.min(3.0, _speed + 0.05);
@@ -204,6 +205,21 @@ async function init() {
 // 🔹 interner Status für Auto-Zeitfluss
 let _auto = false;
 let _speed = 0.25;
+
+function activateCamera(type) {
+  switchToCamera(type);
+  gui?.setActiveCamera?.(type);
+}
+
+function formatHoursClock(hours) {
+  let h = Math.floor(hours);
+  let minutes = Math.round((hours - h) * 60);
+  if (minutes === 60) {
+    minutes = 0;
+    h = (h + 1) % 24;
+  }
+  return `${String(h).padStart(2, '0')}.${String(minutes).padStart(2, '0')}`;
+}
 
 function handlePlacerModeChange(enabled) {
   placerActive = enabled;
@@ -263,7 +279,7 @@ function animate() {
   overlayEl.textContent =
     `Cam: ${type.toUpperCase()} · ` +
     `${isDaytime() ? 'DAY' : 'NIGHT'} · ` +
-    `TIME:${getHours().toFixed(2)}h · ` +    // 🔹 Uhrzeit ins Overlay
+    `TIME:${formatHoursClock(getHours())}h · ` +    // 🔹 Uhrzeit ins Overlay
     `FPS:${stats.fps} · MS:${stats.ms} · MB:${mem}`;
   stats.update();
 }
