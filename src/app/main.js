@@ -44,6 +44,7 @@ let guiHiddenBeforePlacer = false;
 let fireSystems = [];
 /** Tracks whether the user toggled the FP torch on. */
 let torchUserEnabled = false;
+const INITIAL_FP_SPAWN = new THREE.Vector3(21.695271384698064, 0, 48.024155025144296);
 
 /**
  * Bootstraps the scene, assets, controls, and UI.
@@ -64,16 +65,17 @@ async function init() {
     drone: { flySpeed: 32, height: 120, minHeight: 25, maxHeight: 350, turbo: 1.8 }
   });
 
-  const safeDronePos = findSafeSpawnPosition(cameras.drone.camera.position);
-  cameras.drone.camera.position.copy(safeDronePos);
-  const safeFpPos = findSafeSpawnPosition(cameras.fp.camera.position);
-  cameras.fp.camera.position.copy(safeFpPos);
+  const droneCam = cameras.drone.camera;
+  droneCam.position.set(INITIAL_FP_SPAWN.x, droneCam.position.y, INITIAL_FP_SPAWN.z);
+  const safeDronePos = findSafeSpawnPosition(droneCam.position);
+  droneCam.position.copy(safeDronePos);
+  cameras.fp.camera.position.copy(INITIAL_FP_SPAWN);
 
   soundscape = createSoundscape({
     getIsDaytime: () => isDaytime()
   });
 
-  activateCamera('drone');
+  activateCamera('fp');
 
   lights = createLights(scene);
 
