@@ -30,12 +30,14 @@ import { createHotspotManager } from '../scene/hotspots/hotspotManager.js';
 import { getHotspotDefinition } from '../scene/hotspots/hotspotContent.js';
 import {createFireSystem} from "../scene/fire/fire.js";
 import {initEgoTorch, setEgoTorchActive, updateEgoTorch} from "../scene/fire/torch.js";
+import { createSoundscape } from '../util/soundscape.js';
+import { SurfaceTypes, markSurface } from '../util/surfaces.js';
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
 const WATER_COLOR = new THREE.Color();
 
-let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather, hotspotManager;
+let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather, hotspotManager, soundscape;
 let placerActive = false;
 let guiHiddenBeforePlacer = false;
 let fireSystems = [];
@@ -66,6 +68,11 @@ async function init() {
   const safeFpPos = findSafeSpawnPosition(cameras.fp.camera.position);
   cameras.fp.camera.position.copy(safeFpPos);
 
+  soundscape = createSoundscape({
+    getIsDaytime: () => isDaytime(),
+    waterHeight: -100
+  });
+
   activateCamera('drone');
 
   lights = createLights(scene);
@@ -79,13 +86,16 @@ async function init() {
         distance: 1000
     });
 
-  buildCity(scene, {
+  const { ground: groundMesh } = (buildCity(scene, {
     groundSize: 1750,
     water: {
       sunLight: lights.sun,
       reflectionIgnore: lights.starField
     }
-  });
+  }) || {});
+  if (groundMesh) {
+    soundscape?.registerWalkSurface(groundMesh);
+  }
 
   waterController = createWater(scene, {
     size: 10000,
@@ -209,6 +219,12 @@ let _speed = 0.25;
 function activateCamera(type) {
   switchToCamera(type);
   gui?.setActiveCamera?.(type);
+  const cam = type === 'orbit'
+    ? cameras.orbit.camera
+    : type === 'drone'
+      ? cameras.drone.camera
+      : cameras.fp.camera;
+  soundscape?.setCamera(cam);
 }
 
 /**
@@ -280,6 +296,14 @@ function animate() {
   const torchShouldBeOn = (type === 'fp') && !isDaytime() && torchUserEnabled;
   setEgoTorchActive(torchShouldBeOn);
   updateEgoTorch(dt, t);
+
+  soundscape?.update(dt, {
+    camera: cam,
+    fpCamera: cameras.fp.camera,
+    activeCameraType: type,
+    fpState: cameras.fp.state,
+    torchActive: torchShouldBeOn
+  });
 
   renderer.render(scene, cam);
 
@@ -358,6 +382,11 @@ async function loadPlacementsAndSpawn() {
       onLoaded: (model) => {
         registerPlaceableObject(model, name);
 
+        if (typeof data.url === 'string' && data.url.includes('bodenplatte')) {
+          markSurface(model, SurfaceTypes.STONE);
+          soundscape?.registerWalkSurface(model);
+        }
+
         const hotspotConfig = data.hotspot ?? getHotspotDefinition(name);
         if (hotspotManager && hotspotConfig) {
           const hs = hotspotConfig;
@@ -393,6 +422,7 @@ async function loadPlacementsAndSpawn() {
           intensity,
           distance
         );
+        soundscape?.registerFireSource(fireMarker);
         fireSystems.push(fireFX);
       }
     });

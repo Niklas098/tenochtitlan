@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { createHitboxForGLB } from '../../util/collision.js';
+import { markSurface, SurfaceTypes } from '../../util/surfaces.js';
 import {
   createShoreHeatSampler,
   sculptGroundWithShoreHeatmap
@@ -261,6 +262,9 @@ export function buildCity(scene, {
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.receiveShadow = true;
   scene.add(ground);
+  markSurface(ground, SurfaceTypes.SAND);
+
+  return { ground };
 }
 
 const gltfLoader = new GLTFLoader();

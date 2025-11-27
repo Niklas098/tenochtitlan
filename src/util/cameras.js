@@ -114,6 +114,7 @@ export function createCameras(renderer, canvas, options = {}) {
     fp.position.set(0, FP_BASE_HEIGHT, 3.2);
 
     const kfp = { w:false, a:false, s:false, d:false, locked:false, jumping:false };
+    const fpState = { isMoving: false, onGround: true };
     let yawF=0, pitchF=0;
     let fpVelY = 0;
     const GRAVITY = -24;
@@ -169,12 +170,14 @@ export function createCameras(renderer, canvas, options = {}) {
         move.addScaledVector(forward, dir.z * speed);
         move.addScaledVector(right,   dir.x * speed);
 
-        if (move.lengthSq() > 0) {
+        const horizontalMotion = move.lengthSq() > 0;
+        if (horizontalMotion) {
             const candidate = fp.position.clone().add(move);
             if (!isInsideAnyHitbox(candidate)) {
                 fp.position.copy(candidate);
             }
         }
+        fpState.isMoving = horizontalMotion;
 
         fpVelY += GRAVITY * dt;
         fp.position.y += fpVelY * dt;
@@ -184,6 +187,7 @@ export function createCameras(renderer, canvas, options = {}) {
             fpVelY = 0;
             kfp.jumping = false;
         }
+        fpState.onGround = Math.abs(fp.position.y - FP_BASE_HEIGHT) < 0.01 && fpVelY === 0;
     }
 
     onCameraSwitch = (prev, next) => {
@@ -204,7 +208,7 @@ export function createCameras(renderer, canvas, options = {}) {
     return {
         orbit: { camera: orbitCam, controls: orbit, update: updateOrbit },
         drone: { camera: drone, update: updateDrone, resetHeight, _conf: conf },
-        fp:    { camera: fp,    update: updateFp }
+        fp:    { camera: fp,    update: updateFp, state: fpState }
     };
 }
 
