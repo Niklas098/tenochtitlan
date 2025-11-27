@@ -39,6 +39,7 @@ const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
 const WATER_COLOR = new THREE.Color();
 
 let renderer, scene, cameras, clock, lights, gui, stats, overlayEl, waterController, weather, hotspotManager, soundscape;
+let canvasEl = null;
 let placerActive = false;
 let guiHiddenBeforePlacer = false;
 let fireSystems = [];
@@ -53,15 +54,15 @@ async function init() {
   scene = new THREE.Scene();
   hotspotManager = createHotspotManager(scene);
 
-  const canvas = document.getElementById('app');
-  if (!canvas) {
+  canvasEl = document.getElementById('app');
+  if (!canvasEl) {
     console.error("ERROR: <canvas id='app'> missing in index.html");
     return;
   }
 
-  ({ renderer, stats, overlayEl } = createRenderer(canvas));
+  ({ renderer, stats, overlayEl } = createRenderer(canvasEl));
 
-  cameras = createCameras(renderer, canvas, {
+  cameras = createCameras(renderer, canvasEl, {
     drone: { flySpeed: 32, height: 120, minHeight: 25, maxHeight: 350, turbo: 1.8 }
   });
 
@@ -110,6 +111,7 @@ async function init() {
     flowSpeed: 0.004,
     fog: true
   });
+  waterController?.setQuality?.(WATER_QUALITY.STATIC);
 
   createMountains(scene, {
     size: 20000,
@@ -148,6 +150,7 @@ async function init() {
       setRainEnabled: (on) => weather?.setRainEnabled?.(on)
     }
   });
+  gui?.hide();
 
   clock = new THREE.Clock();
   window.addEventListener('resize', onResize);
@@ -174,7 +177,14 @@ async function init() {
     }
     if (e.code === 'KeyG') {
       if (placerActive) return;
-      gui._hidden ? gui.show() : gui.hide();
+      if (gui?._hidden) {
+        gui.show();
+        if (document.pointerLockElement === canvasEl) {
+          document.exitPointerLock?.();
+        }
+      } else {
+        gui?.hide();
+      }
     }
     if (e.code === 'KeyR') {
       cameras.drone.resetHeight();
