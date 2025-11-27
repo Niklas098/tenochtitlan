@@ -112,7 +112,8 @@ function createPromptUI() {
   };
 }
 
-function createInfoPanel() {
+function createInfoPanel(options = {}) {
+  const { onVisibilityChange } = options;
   let wrapper = document.getElementById('hotspot-info');
   if (!wrapper) {
     wrapper = document.createElement('div');
@@ -186,11 +187,13 @@ function createInfoPanel() {
     if (titleEl) titleEl.textContent = title || 'Info';
     if (bodyEl) bodyEl.textContent = description || '';
     wrapper.style.display = 'flex';
+    onVisibilityChange?.(true);
   }
 
   function hide() {
     wrapper.style.display = 'none';
     currentId = null;
+    onVisibilityChange?.(false);
   }
 
   return {
@@ -215,10 +218,15 @@ function resolveAnchorPosition(hotspot) {
   return null;
 }
 
-export function createHotspotManager(scene) {
+export function createHotspotManager(scene, options = {}) {
+  const { onPanelVisibilityChange } = options;
   const hotspots = [];
   const prompt = createPromptUI();
-  const panel = createInfoPanel();
+  const panel = createInfoPanel({
+    onVisibilityChange: (visible) => {
+      onPanelVisibilityChange?.(visible);
+    }
+  });
   let active = null;
 
   function addHotspot({
@@ -310,6 +318,7 @@ export function createHotspotManager(scene) {
     update,
     handleInteract,
     closePanel,
+    isPanelOpen: () => panel.isOpen(),
     get activeHotspotId() {
       return active?.id ?? null;
     }

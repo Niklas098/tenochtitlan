@@ -45,20 +45,69 @@ let guiHiddenBeforePlacer = false;
 let fireSystems = [];
 /** Tracks whether the user toggled the FP torch on. */
 let torchUserEnabled = false;
+let pointerLockPending = false;
+let hotspotPanelVisible = false;
+let placerStateInitialized = false;
 const INITIAL_FP_SPAWN = new THREE.Vector3(21.695271384698064, 0, 48.024155025144296);
+
+function isGuiVisible() {
+  return gui ? !gui._hidden : false;
+}
+
+function shouldUsePointerLock() {
+  if (!canvasEl) return false;
+  if (isGuiVisible()) return false;
+  if (placerActive) return false;
+  if (hotspotPanelVisible) return false;
+  const type = getActiveCameraType();
+  return type === 'fp' || type === 'drone';
+}
+
+function syncPointerLockState({ interactive = false } = {}) {
+  pointerLockPending = shouldUsePointerLock();
+  if (!pointerLockPending) {
+    if (document.pointerLockElement === canvasEl) {
+      document.exitPointerLock?.();
+    }
+    return;
+  }
+  if (document.pointerLockElement === canvasEl) {
+    return;
+  }
+  if (interactive) {
+    try {
+      canvasEl?.requestPointerLock?.();
+    } catch (_) {
+      /* ignore - browser requires user activation */
+    }
+  }
+}
+
+function requestPointerLockFromUserGesture() {
+  if (!pointerLockPending || document.pointerLockElement === canvasEl) return;
+  syncPointerLockState({ interactive: true });
+}
+
+function handleHotspotPanelVisibilityChange(visible) {
+  hotspotPanelVisible = visible;
+  syncPointerLockState({ interactive: !visible });
+}
 
 /**
  * Bootstraps the scene, assets, controls, and UI.
  */
 async function init() {
   scene = new THREE.Scene();
-  hotspotManager = createHotspotManager(scene);
+  hotspotManager = createHotspotManager(scene, {
+    onPanelVisibilityChange: handleHotspotPanelVisibilityChange
+  });
 
   canvasEl = document.getElementById('app');
   if (!canvasEl) {
     console.error("ERROR: <canvas id='app'> missing in index.html");
     return;
   }
+  canvasEl.addEventListener('pointerdown', requestPointerLockFromUserGesture);
 
   ({ renderer, stats, overlayEl } = createRenderer(canvasEl));
 
@@ -151,6 +200,7 @@ async function init() {
     }
   });
   gui?.hide();
+  syncPointerLockState({ interactive: true });
 
   clock = new THREE.Clock();
   window.addEventListener('resize', onResize);
@@ -163,7 +213,9 @@ async function init() {
       const order = ['orbit','drone','fp'];
       const cur = order.indexOf(getActiveCameraType());
       const next = order[(cur+1) % order.length];
-      activateCamera(next);
+      activateCamera(next, { interactive: true });
+      requestPointerLockFromUserGesture();
+      return;
     }
     if (e.code === 'KeyE' && getActiveCameraType() === 'fp') {
       if (hotspotManager?.handleInteract()) {
@@ -179,12 +231,12 @@ async function init() {
       if (placerActive) return;
       if (gui?._hidden) {
         gui.show();
-        if (document.pointerLockElement === canvasEl) {
-          document.exitPointerLock?.();
-        }
+        syncPointerLockState();
       } else {
         gui?.hide();
+        requestPointerLockFromUserGesture();
       }
+      return;
     }
     if (e.code === 'KeyR') {
       cameras.drone.resetHeight();
@@ -217,6 +269,7 @@ async function init() {
       _speed = Math.max(0.05, _speed - 0.05);
       setTimeSpeed(_speed);
     }
+    requestPointerLockFromUserGesture();
   });
 }
 
@@ -227,8 +280,10 @@ let _speed = 0.25;
 /**
  * Switches cameras and mirrors the state to the GUI.
  * @param {'orbit'|'drone'|'fp'} type
+ * @param {{interactive?:boolean}} [options]
  */
-function activateCamera(type) {
+function activateCamera(type, options = {}) {
+  const { interactive = false } = options;
   switchToCamera(type);
   gui?.setActiveCamera?.(type);
   const cam = type === 'orbit'
@@ -237,6 +292,7 @@ function activateCamera(type) {
       ? cameras.drone.camera
       : cameras.fp.camera;
   soundscape?.setCamera(cam);
+  syncPointerLockState({ interactive });
 }
 
 /**
@@ -269,6 +325,9 @@ function handlePlacerModeChange(enabled) {
     }
     guiHiddenBeforePlacer = false;
   }
+  const interactive = placerStateInitialized && !enabled;
+  placerStateInitialized = true;
+  syncPointerLockState({ interactive });
 }
 
 /** Main render loop. */

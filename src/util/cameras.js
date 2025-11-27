@@ -40,7 +40,7 @@ export function createCameras(renderer, canvas, options = {}) {
     const drone = new THREE.PerspectiveCamera(70, aspect, 0.1, 9000);
     drone.position.set(0, conf.height, 6);
     let yaw = 0, pitch = -0.08;
-    const keys = { w:false, a:false, s:false, d:false, q:false, e:false, shift:false, rmb:false, lastX:0, lastY:0 };
+    const keys = { w:false, a:false, s:false, d:false, q:false, e:false, shift:false, rmb:false, lastX:0, lastY:0, pointerLocked:false };
 
     const onKey = (e, down) => {
         if (e.code === 'KeyW') keys.w = down;
@@ -54,18 +54,27 @@ export function createCameras(renderer, canvas, options = {}) {
     window.addEventListener('keydown', e=>onKey(e,true));
     window.addEventListener('keyup',   e=>onKey(e,false));
 
-    renderer.domElement.addEventListener('contextmenu', e=>e.preventDefault());
-    renderer.domElement.addEventListener('mousedown', (e)=>{ if (e.button===2){ keys.rmb=true; keys.lastX=e.clientX; keys.lastY=e.clientY; }});
-    window.addEventListener('mouseup', (e)=>{ if (e.button===2) keys.rmb=false; });
-    window.addEventListener('mousemove', (e)=>{
-        if (active!=='drone' || !keys.rmb) return;
-        const dx = e.clientX - keys.lastX;
-        const dy = e.clientY - keys.lastY;
-        keys.lastX = e.clientX; keys.lastY = e.clientY;
+    const updateDroneLookAngles = (dx, dy) => {
         const s = 0.003;
         yaw   -= dx * s;
         pitch -= dy * s;
         pitch = Math.max(-1.3, Math.min(1.3, pitch));
+    };
+
+    renderer.domElement.addEventListener('contextmenu', e=>e.preventDefault());
+    renderer.domElement.addEventListener('mousedown', (e)=>{ if (e.button===2){ keys.rmb=true; keys.lastX=e.clientX; keys.lastY=e.clientY; }});
+    window.addEventListener('mouseup', (e)=>{ if (e.button===2) keys.rmb=false; });
+    window.addEventListener('mousemove', (e)=>{
+        if (active !== 'drone') return;
+        if (keys.pointerLocked) {
+            updateDroneLookAngles(e.movementX || 0, e.movementY || 0);
+            return;
+        }
+        if (!keys.rmb) return;
+        const dx = e.clientX - keys.lastX;
+        const dy = e.clientY - keys.lastY;
+        keys.lastX = e.clientX; keys.lastY = e.clientY;
+        updateDroneLookAngles(dx, dy);
     });
 
     renderer.domElement.addEventListener('wheel', (e) => {
@@ -137,10 +146,17 @@ export function createCameras(renderer, canvas, options = {}) {
     window.addEventListener('keyup',   e=>onKeyFp(e,false));
 
     canvas.addEventListener('click', ()=> {
-        if (active === 'fp' && !kfp.locked) canvas.requestPointerLock();
+        if ((active === 'fp' || active === 'drone') && document.pointerLockElement !== canvas) {
+            canvas.requestPointerLock();
+        }
     });
     document.addEventListener('pointerlockchange', ()=> {
-        kfp.locked = document.pointerLockElement === canvas;
+        const locked = document.pointerLockElement === canvas;
+        kfp.locked = locked;
+        keys.pointerLocked = locked;
+        if (!locked) {
+            keys.rmb = false;
+        }
     });
     window.addEventListener('mousemove', e=> {
         if (active!=='fp' || !kfp.locked) return;
