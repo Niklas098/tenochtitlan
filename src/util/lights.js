@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { getAssetLoadingManager } from './loadingState.js';
 
 let lights = null;
 let starsVisible = false;
@@ -17,7 +18,7 @@ function kelvinToRGB(k) {
   return new THREE.Color(clamp01(r / 255), clamp01(g / 255), clamp01(b / 255));
 }
 
-const moonTexture = new THREE.TextureLoader().load('/textures/moon.png');
+const moonTexture = new THREE.TextureLoader(getAssetLoadingManager()).load('/textures/moon.png');
 moonTexture.anisotropy = 8;
 if ('colorSpace' in moonTexture) moonTexture.colorSpace = THREE.SRGBColorSpace; else moonTexture.encoding = THREE.sRGBEncoding;
 moonTexture.wrapS = moonTexture.wrapT = THREE.ClampToEdgeWrapping;

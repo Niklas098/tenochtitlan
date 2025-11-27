@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { getAssetLoadingManager } from '../../util/loadingState.js';
+
+const textureLoader = new THREE.TextureLoader(getAssetLoadingManager());
 
 /**
  * Creates a fire + smoke particle system plus flickering point light at an anchor object.
@@ -117,7 +120,7 @@ export function createFireSystem(anchor, fireTexture = "/textures/fire.png", int
                                       sizePoints,
                                       blending,
                                   }) {
-        const texture = new THREE.TextureLoader().load(texturePath);
+        const texture = textureLoader.load(texturePath);
 
         const uniforms = {
             diffuseTexture: { value: texture },

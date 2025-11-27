@@ -1,17 +1,18 @@
 // src/util/soundscape.js
 import * as THREE from 'three';
 import { SurfaceTypes, getSurfaceType } from './surfaces.js';
+import { getAssetLoadingManager } from './loadingState.js';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const FIRE_RANGE = { near: 4, far: 11 };
 
 /**
  * Creates and manages all ambient/footstep audio tracks.
- * @param {{getIsDaytime?:()=>boolean, waterHeight?:number}} [options]
+ * @param {{getIsDaytime?:()=>boolean}} [options]
  */
-export function createSoundscape({ getIsDaytime = () => true, waterHeight = -100 } = {}) {
+export function createSoundscape({ getIsDaytime = () => true } = {}) {
   const listener = new THREE.AudioListener();
-  const loader = new THREE.AudioLoader();
+  const loader = new THREE.AudioLoader(getAssetLoadingManager());
 
   const resumeAudioContext = () => {
     const ctx = listener.context;
@@ -32,7 +33,6 @@ export function createSoundscape({ getIsDaytime = () => true, waterHeight = -100
     stone: createLoop('/data/audio/stonewalk.mp3', 0.55, 8.0),
     fireBowl: createLoop('/data/audio/firebowl.mp3', 0.65, 1.6),
     torchFire: createLoop('/data/audio/firebowl.mp3', 0.35, 2.4),
-    water: createLoop('/data/audio/water.mp3', 0.55, 1.6),
     rain: createLoop('/data/audio/rain.mp3', 0.65, 1.4)
   };
   const loopEntries = Object.values(loops);
@@ -123,12 +123,6 @@ export function createSoundscape({ getIsDaytime = () => true, waterHeight = -100
     return null;
   }
 
-  function computeWaterVolume(fpCamera) {
-    if (!fpCamera) return 0;
-    const relative = fpCamera.position.y - waterHeight;
-    return clamp01(1 - relative / 80);
-  }
-
   function computeFireVolume(fpCamera) {
     if (!fpCamera || fireAnchors.size === 0) return 0;
     let minDistance = Infinity;
@@ -186,9 +180,7 @@ export function createSoundscape({ getIsDaytime = () => true, waterHeight = -100
     }
     lastTorchActive = torchActive;
 
-    const waterVolume = isFpActive ? computeWaterVolume(fpCamera) : 0;
     const fireVolume = isFpActive && isNight ? computeFireVolume(fpCamera) : 0;
-    setLoopStrength(loops.water, waterVolume);
     setLoopStrength(loops.fireBowl, fireVolume);
     setLoopStrength(loops.torchFire, torchActive ? 1 : 0);
     setLoopStrength(loops.rain, isRaining ? 1 : 0);

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Water } from 'three/examples/jsm/objects/Water2.js';
+import { getAssetLoadingManager } from '../../util/loadingState.js';
 
-const loader = new THREE.TextureLoader();
+const loader = new THREE.TextureLoader(getAssetLoadingManager());
 let cachedNormalMap = null;
 
 export const WATER_QUALITY = Object.freeze({

@@ -14,9 +14,69 @@
             background: rgba(0,0,0,.35); color:#fff;
             font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
         }
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.45s ease;
+        }
+        #loading-screen.loading-screen--hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #loading-screen .loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            text-align: center;
+            color: #fff;
+            font: 600 16px/1.4 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', sans-serif;
+            letter-spacing: 0.08em;
+        }
+        #loading-screen .loading-logo {
+            width: min(45vmin, 280px);
+            height: auto;
+            image-rendering: crisp-edges;
+            filter: drop-shadow(0 0 30px rgba(255,255,255,0.3));
+        }
+        #loading-screen .loading-bar {
+            width: min(70vw, 420px);
+            height: 12px;
+            border-radius: 999px;
+            background: #3b3b3b;
+            overflow: hidden;
+        }
+        #loading-screen .loading-bar-fill {
+            display: block;
+            width: 0%;
+            height: 100%;
+            background: #fff;
+            transition: width 0.4s ease;
+        }
+        #loading-screen .loading-label {
+            font-size: clamp(14px, 2vw, 18px);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: #9ea3b0;
+        }
     </style>
 </head>
 <body>
+<div id="loading-screen" aria-live="polite">
+    <div class="loading-content">
+        <img src="/textures/favicon.png" alt="Tenochtitlan Symbol" class="loading-logo" />
+        <div class="loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span class="loading-bar-fill" data-loading-bar-fill></span>
+        </div>
+        <div class="loading-label" data-loading-label>Lade Umgebung...</div>
+    </div>
+</div>
 <canvas id="app"></canvas>
 <div id="help">
     C: Kamera · E: Info (FP) · F: Fackel (FP) · N: Tag/Nacht · Left/Right: Zeit +/- 15min · T: Autozeit · +/-: Zeittempo · G: GUI · P: Placer · R: Drohnenhöhe · H: Hitboxen

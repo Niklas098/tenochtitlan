@@ -32,6 +32,7 @@ import {createFireSystem} from "../scene/fire/fire.js";
 import {initEgoTorch, setEgoTorchActive, updateEgoTorch} from "../scene/fire/torch.js";
 import { createSoundscape } from '../util/soundscape.js';
 import { SurfaceTypes, markSurface } from '../util/surfaces.js';
+import { markInitialLoadComplete } from '../util/loadingState.js';
 
 const WATER_DAY_COLOR = new THREE.Color(0x2a4f72);
 const WATER_NIGHT_COLOR = new THREE.Color(0x05090f);
@@ -69,8 +70,7 @@ async function init() {
   cameras.fp.camera.position.copy(safeFpPos);
 
   soundscape = createSoundscape({
-    getIsDaytime: () => isDaytime(),
-    waterHeight: -100
+    getIsDaytime: () => isDaytime()
   });
 
   activateCamera('drone');
@@ -481,4 +481,12 @@ function toScale(value) {
   return 1;
 }
 
-init().then(() => animate());
+init()
+  .then(() => {
+    markInitialLoadComplete();
+    animate();
+  })
+  .catch((err) => {
+    console.error('Failed to initialize app', err);
+    markInitialLoadComplete();
+  });

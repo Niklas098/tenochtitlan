@@ -7,6 +7,7 @@ import {
   createShoreHeatSampler,
   sculptGroundWithShoreHeatmap
 } from '../water/water.js';
+import { getAssetLoadingManager } from '../../util/loadingState.js';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
@@ -242,7 +243,7 @@ export function buildCity(scene, {
     height: 0
   });
 
-  const textureLoader = new THREE.TextureLoader();
+  const textureLoader = new THREE.TextureLoader(getAssetLoadingManager());
   const base = '/textures/ground/sandy_gravel_02_';
 
   const wrapAndRepeat = (tex, { srgb = false } = {}) => {
@@ -267,7 +268,7 @@ export function buildCity(scene, {
   return { ground };
 }
 
-const gltfLoader = new GLTFLoader();
+const gltfLoader = new GLTFLoader(getAssetLoadingManager());
 const gltfCache = new Map();
 
 const fetchGLTF = (url) => {
