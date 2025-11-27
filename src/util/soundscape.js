@@ -32,7 +32,8 @@ export function createSoundscape({ getIsDaytime = () => true, waterHeight = -100
     stone: createLoop('/data/audio/stonewalk.mp3', 0.55, 8.0),
     fireBowl: createLoop('/data/audio/firebowl.mp3', 0.65, 1.6),
     torchFire: createLoop('/data/audio/firebowl.mp3', 0.35, 2.4),
-    water: createLoop('/data/audio/water.mp3', 0.55, 1.6)
+    water: createLoop('/data/audio/water.mp3', 0.55, 1.6),
+    rain: createLoop('/data/audio/rain.mp3', 0.65, 1.4)
   };
   const loopEntries = Object.values(loops);
 
@@ -155,7 +156,8 @@ export function createSoundscape({ getIsDaytime = () => true, waterHeight = -100
     fpCamera = null,
     activeCameraType = 'drone',
     fpState = null,
-    torchActive = false
+    torchActive = false,
+    isRaining = false
   } = {}) {
     if (camera) {
       setCamera(camera);
@@ -189,6 +191,7 @@ export function createSoundscape({ getIsDaytime = () => true, waterHeight = -100
     setLoopStrength(loops.water, waterVolume);
     setLoopStrength(loops.fireBowl, fireVolume);
     setLoopStrength(loops.torchFire, torchActive ? 1 : 0);
+    setLoopStrength(loops.rain, isRaining ? 1 : 0);
 
     loopEntries.forEach((entry) => tickLoop(entry, dt));
   }

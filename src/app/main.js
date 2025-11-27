@@ -302,7 +302,8 @@ function animate() {
     fpCamera: cameras.fp.camera,
     activeCameraType: type,
     fpState: cameras.fp.state,
-    torchActive: torchShouldBeOn
+    torchActive: torchShouldBeOn,
+    isRaining: weather?.isRainEnabled?.() ?? false
   });
 
   renderer.render(scene, cam);
